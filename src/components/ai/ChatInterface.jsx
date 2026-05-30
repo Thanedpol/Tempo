@@ -41,8 +41,8 @@ const SUGGESTIONS_BY_LANG = {
 };
 
 const WELCOME_BY_LANG = {
-  en: 'Hi! I’m the **Agentic AI Entertain Assistant** 🎵\n\nI can help you find concerts, book tickets, and find a place to stay — end to end.\n\nTry something like *"Book end-of-year rock concert tickets, standing, ~5,000 THB, with a nearby hotel"*',
-  th: 'สวัสดีครับ! ผมคือ **Agentic AI Entertain Assistant** 🎵\n\nผมสามารถช่วยคุณค้นหาคอนเสิร์ต จองตั๋ว และหาที่พักได้แบบครบวงจร\n\nลองพิมพ์คำสั่งเช่น *"จองตั๋ววงร็อคสากลปลายปี โซนยืน งบ 5,000 พร้อมโรงแรมใกล้ๆ"*',
+  en: 'Hi! I’m the **Agentic AI Entertain Assistant** 🎵\n\nI can help you find concerts, compare ticket options, and suggest places to stay. _(Demo: results are samples — booking & payment aren’t live yet.)_\n\nTry something like *"Find end-of-year rock concert tickets, standing, ~5,000 THB, with a nearby hotel"*',
+  th: 'สวัสดีครับ! ผมคือ **Agentic AI Entertain Assistant** 🎵\n\nผมช่วยคุณค้นหาคอนเสิร์ต เปรียบเทียบตัวเลือกตั๋ว และแนะนำที่พักได้ _(โหมดสาธิต: ผลลัพธ์เป็นตัวอย่าง ยังจอง/จ่ายเงินจริงไม่ได้)_\n\nลองพิมพ์เช่น *"หาตั๋ววงร็อคสากลปลายปี โซนยืน งบ 5,000 พร้อมโรงแรมใกล้ๆ"*',
   ja: 'こんにちは!**Agentic AI エンターテインメントアシスタント** 🎵 です\n\nコンサート検索、チケット予約、宿泊先まで一括でサポートします。\n\n例:*「年末の海外ロックバンド、スタンディング、5,000 バーツ、近くのホテル付きで予約」*',
   zh: '你好!我是 **Agentic AI 娱乐助手** 🎵\n\n我可以为你查找音乐会、预订门票并找到合适的住宿,一站搞定。\n\n试试 *「帮我预订年底国际摇滚演唱会站票,预算 5,000 泰铢,附近酒店一起」*',
   ko: '안녕하세요! 저는 **Agentic AI 엔터테인먼트 어시스턴트** 🎵 입니다\n\n콘서트 검색, 티켓 예매, 숙박까지 한 번에 도와드려요.\n\n예: *"연말 해외 록밴드 콘서트, 스탠딩, 5,000 바트 예산, 근처 호텔과 함께 예약해줘"*',
@@ -350,7 +350,7 @@ export default function ChatInterface({ sessionId, onSessionUpdate }) {
         <div className="text-center text-xs text-muted-foreground mt-2 flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-3">
           <span className="flex items-center gap-1">
             <Zap className="w-3 h-3" />
-            {t('ai.agentic_note', { en: 'AI runs agentically — searches, books, notifies automatically', th: 'AI ทำงานแบบ Agentic — ค้นหา จอง และแจ้งผลโดยอัตโนมัติ', ja: 'AI がエージェント的に動作 — 検索・予約・通知を自動実行', zh: 'AI 以代理方式运行 — 自动搜索、预订并通知', ko: 'AI가 에이전트로 동작 — 검색·예약·알림 자동 수행' })}
+            {t('ai.agentic_note', { en: 'AI searches & recommends automatically · Demo — no real booking/payment yet', th: 'AI ค้นหาและแนะนำให้อัตโนมัติ · โหมดสาธิต — ยังไม่จอง/จ่ายเงินจริง', ja: 'AI が自動で検索・提案 · デモ — 実際の予約・決済はまだ', zh: 'AI 自动搜索与推荐 · 演示 — 暂不进行真实预订/付款', ko: 'AI 자동 검색·추천 · 데모 — 실제 예약/결제 미지원' })}
           </span>
           <span className="hidden sm:inline text-muted-foreground/40">·</span>
           <span className="flex items-center gap-1 text-muted-foreground/70">

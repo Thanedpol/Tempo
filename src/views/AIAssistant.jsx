@@ -8,8 +8,8 @@ export default function AIAssistant() {
   const [sessionId] = useState(() => 'session-' + Date.now());
 
   const features = [
-    { icon: Zap,    label: t('ai.feat.auto_queue',  { en: 'Auto Queue',     th: 'ต่อคิวอัตโนมัติ',           ja: '自動キューイング',     zh: '自动排队',            ko: '자동 대기열' }),       desc: t('ai.feat.auto_queue_d',  { en: 'Auto-queue for tickets',  th: 'ต่อคิวซื้อตั๋วอัตโนมัติ',   ja: 'チケット購入を自動で並ぶ',  zh: '自动排队购票',         ko: '자동으로 티켓 줄서기' }),  color: 'text-primary' },
-    { icon: Shield, label: t('ai.feat.captcha',     { en: 'CAPTCHA Bypass', th: 'CAPTCHA Bypass',            ja: 'CAPTCHA 回避',         zh: '绕过 CAPTCHA',         ko: 'CAPTCHA 우회' }),     desc: t('ai.feat.captcha_d',     { en: 'Notify when human is needed', th: 'แจ้งเตือนเมื่อต้องการมนุษย์', ja: '人手が必要なときに通知', zh: '需要人工时通知', ko: '사람이 필요할 때 알림' }), color: 'text-amber-400' },
+    { icon: Zap,    label: t('ai.feat.auto_queue',  { en: 'Auto Queue',     th: 'ต่อคิวอัตโนมัติ',           ja: '自動キューイング',     zh: '自动排队',            ko: '자동 대기열' }),       desc: t('ai.feat.auto_queue_d',  { en: 'Auto-queue for tickets (soon)',  th: 'ต่อคิวซื้อตั๋วอัตโนมัติ (เร็ว ๆ นี้)',   ja: 'チケット購入を自動で並ぶ(近日)',  zh: '自动排队购票(即将推出)',         ko: '자동으로 티켓 줄서기 (출시 예정)' }),  color: 'text-primary' },
+    { icon: Shield, label: t('ai.feat.captcha',     { en: 'CAPTCHA Assist', th: 'ช่วยจัดการ CAPTCHA',            ja: 'CAPTCHA 補助',         zh: 'CAPTCHA 协助',         ko: 'CAPTCHA 지원' }),     desc: t('ai.feat.captcha_d',     { en: 'Notify when human is needed', th: 'แจ้งเตือนเมื่อต้องการมนุษย์', ja: '人手が必要なときに通知', zh: '需要人工时通知', ko: '사람이 필요할 때 알림' }), color: 'text-amber-400' },
     { icon: Clock,  label: t('ai.feat.realtime',    { en: 'Real-time',      th: 'เรียลไทม์',                   ja: 'リアルタイム',         zh: '实时',                  ko: '실시간' }),             desc: t('ai.feat.realtime_d',    { en: 'Track status live',       th: 'ติดตามสถานะแบบ Live',     ja: 'ステータスをライブ追跡', zh: '实时跟踪状态',         ko: '실시간 상태 추적' }),     color: 'text-neon-cyan' },
   ];
 

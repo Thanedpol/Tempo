@@ -4,7 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { useI18n } from '@/lib/I18nContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, CreditCard, Settings as SettingsIcon, LogOut, ChevronDown, Ticket, ShieldCheck } from 'lucide-react';
+import { User, CreditCard, LogOut, ChevronDown, Ticket, ShieldCheck } from 'lucide-react';
 
 export default function ProfileMenu() {
   const { user, logout } = useAuth();
@@ -115,26 +115,15 @@ export default function ProfileMenu() {
               </Link>
 
               {user.role === 'admin' && (
-                <>
-                  <Link to="/settings" onClick={() => setOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-secondary/80 transition-all text-sm group">
-                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                      <SettingsIcon className="w-3.5 h-3.5 text-primary" />
-                    </div>
-                    <div>
-                      <div className="font-medium">{t('profile.settings', { en: 'Settings', th: 'การตั้งค่า', ja: '設定', zh: '设置', ko: '설정' })}</div>
-                      <div className="text-[10px] text-muted-foreground">{t('profile.settings_sub', { en: 'AI · Crawler · Affiliate', th: 'AI · Crawler · Affiliate', ja: 'AI · クローラー · アフィリエイト', zh: 'AI · 爬虫 · 联盟', ko: 'AI · 크롤러 · 어필리에이트' })}</div>
-                    </div>
-                  </Link>
-                  <Link to="/admin" onClick={() => setOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-secondary/80 transition-all text-sm group">
-                    <div className="w-7 h-7 rounded-lg bg-destructive/10 flex items-center justify-center group-hover:bg-destructive/20 transition-colors">
-                      <ShieldCheck className="w-3.5 h-3.5 text-destructive" />
-                    </div>
-                    <div>
-                      <div className="font-medium">Admin Panel</div>
-                      <div className="text-[10px] text-muted-foreground">{t('profile.admin_sub', { en: 'System management', th: 'จัดการระบบ', ja: 'システム管理', zh: '系统管理', ko: '시스템 관리' })}</div>
-                    </div>
-                  </Link>
-                </>
+                <Link to="/admin" onClick={() => setOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-secondary/80 transition-all text-sm group">
+                  <div className="w-7 h-7 rounded-lg bg-destructive/10 flex items-center justify-center group-hover:bg-destructive/20 transition-colors">
+                    <ShieldCheck className="w-3.5 h-3.5 text-destructive" />
+                  </div>
+                  <div>
+                    <div className="font-medium">Admin Panel</div>
+                    <div className="text-[10px] text-muted-foreground">{t('profile.admin_sub', { en: 'System · AI · Platforms', th: 'ระบบ · AI · แพลตฟอร์ม', ja: 'システム · AI · プラットフォーム', zh: '系统 · AI · 平台', ko: '시스템 · AI · 플랫폼' })}</div>
+                  </div>
+                </Link>
               )}
             </div>
 
