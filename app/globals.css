@@ -1,0 +1,214 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ====================================================================
+   * Dark theme (default — matches the brand)
+   * ==================================================================== */
+  :root, .dark {
+    --background: 210 30% 5%;
+    --foreground: 195 60% 95%;
+    --card: 210 25% 8%;
+    --card-foreground: 195 50% 92%;
+    --popover: 210 25% 8%;
+    --popover-foreground: 195 50% 92%;
+    --primary: 185 85% 50%;
+    --primary-foreground: 210 30% 5%;
+    --secondary: 210 20% 13%;
+    --secondary-foreground: 195 40% 80%;
+    --muted: 210 20% 13%;
+    --muted-foreground: 200 25% 58%;
+    --accent: 195 75% 65%;
+    --accent-foreground: 210 30% 5%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 210 20% 16%;
+    --input: 210 20% 16%;
+    --ring: 185 85% 50%;
+    --radius: 0.75rem;
+    --neon: 185 85% 50%;
+    --neon-pink: 195 75% 65%;
+    --neon-cyan: 185 90% 55%;
+    --gold: 45 90% 60%;
+
+    /* Component-level tokens that adapt per theme */
+    --glass-bg: 210 25% 9%;
+    --glass-bg-alpha: 0.75;
+    --glass-light-bg: 210 22% 13%;
+    --glass-light-bg-alpha: 0.65;
+    --glass-border: 185 40% 22%;
+    --glass-border-alpha: 0.5;
+    --gradient-stop-1: 185 85% 55%;
+    --gradient-stop-2: 195 75% 70%;
+    --gradient-stop-3: 200 90% 80%;
+    --neon-glow: 185 85% 50%;
+    --neon-glow-alpha-strong: 0.4;
+    --neon-glow-alpha-weak: 0.15;
+  }
+
+  /* ====================================================================
+   * Light theme — high contrast, dark text on near-white surfaces
+   * Foreground hits WCAG AA (≥4.5:1) against background.
+   * ==================================================================== */
+  .light {
+    --background: 200 30% 97%;          /* off-white with a hint of cyan */
+    --foreground: 215 35% 12%;          /* near-black, dark navy tint */
+    --card: 0 0% 100%;                  /* pure white cards */
+    --card-foreground: 215 35% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 35% 12%;
+    --primary: 185 90% 28%;             /* deep teal — high contrast on white */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 200 35% 93%;
+    --secondary-foreground: 215 35% 18%;
+    --muted: 200 35% 93%;
+    --muted-foreground: 215 20% 35%;    /* deep slate — readable on white */
+    --accent: 195 75% 38%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 75% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 200 25% 85%;
+    --input: 200 25% 85%;
+    --ring: 185 90% 28%;
+    --neon: 185 90% 32%;
+    --neon-pink: 195 70% 42%;
+    --neon-cyan: 185 80% 35%;
+    --gold: 38 90% 42%;
+
+    /* Glass becomes white frosted, not dark frosted */
+    --glass-bg: 0 0% 100%;
+    --glass-bg-alpha: 0.85;
+    --glass-light-bg: 200 35% 96%;
+    --glass-light-bg-alpha: 0.85;
+    --glass-border: 200 25% 82%;
+    --glass-border-alpha: 1;
+    /* Gradient text uses deeper, more saturated colors in light mode */
+    --gradient-stop-1: 185 90% 30%;
+    --gradient-stop-2: 195 80% 38%;
+    --gradient-stop-3: 210 70% 45%;
+    --neon-glow: 185 90% 32%;
+    --neon-glow-alpha-strong: 0.18;
+    --neon-glow-alpha-weak: 0.06;
+  }
+}
+
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  body {
+    @apply bg-background text-foreground font-inter;
+    background-attachment: fixed;
+  }
+  :root body, .dark body {
+    background-image:
+      radial-gradient(ellipse at 20% 50%, hsla(185, 85%, 12%, 0.4) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, hsla(195, 75%, 10%, 0.3) 0%, transparent 50%);
+  }
+  .light body {
+    background-image:
+      radial-gradient(ellipse at 20% 50%, hsla(185, 80%, 88%, 0.35) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, hsla(210, 70%, 90%, 0.3) 0%, transparent 50%);
+  }
+}
+
+/* ======================================================================
+ * Brand effects — every effect uses CSS variables so it auto-adapts.
+ * ====================================================================== */
+.font-syne { font-family: 'Syne', sans-serif; }
+.font-inter { font-family: 'Inter', sans-serif; }
+
+.glow-primary { box-shadow: 0 0 20px hsla(var(--neon-glow), var(--neon-glow-alpha-strong)),
+                            0 0 40px hsla(var(--neon-glow), var(--neon-glow-alpha-weak)); }
+.glow-pink    { box-shadow: 0 0 20px hsla(var(--neon-pink), var(--neon-glow-alpha-strong)),
+                            0 0 40px hsla(var(--neon-pink), var(--neon-glow-alpha-weak)); }
+.glow-cyan    { box-shadow: 0 0 20px hsla(var(--neon-cyan), var(--neon-glow-alpha-strong)); }
+
+.gradient-text {
+  background: linear-gradient(135deg,
+    hsl(var(--gradient-stop-1)),
+    hsl(var(--gradient-stop-2)),
+    hsl(var(--gradient-stop-3)));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+
+.glass {
+  background: hsla(var(--glass-bg), var(--glass-bg-alpha));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid hsla(var(--glass-border), var(--glass-border-alpha));
+  color: hsl(var(--card-foreground));        /* ← ensure text inside is readable */
+}
+
+/* Solid, opaque header bar — no transparency. Matches background per theme. */
+.header-bar {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  border-bottom: 1px solid hsl(var(--border));
+}
+.light .header-bar {
+  background: hsl(0 0% 100%);                /* pure white in light mode */
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.glass-light {
+  background: hsla(var(--glass-light-bg), var(--glass-light-bg-alpha));
+  backdrop-filter: blur(12px);
+  border: 1px solid hsla(var(--glass-border), var(--glass-border-alpha));
+  color: hsl(var(--card-foreground));
+}
+
+.neon-border {
+  border: 1px solid hsla(var(--neon-glow), 0.4);
+  box-shadow: 0 0 12px hsla(var(--neon-glow), 0.15),
+              inset 0 0 12px hsla(var(--neon-glow), 0.05);
+}
+
+/* Light-mode polish — add a subtle elevation shadow so white-on-white still pops */
+.light .glass,
+.light .glass-light {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04),
+              0 8px 24px -8px rgba(15, 23, 42, 0.08);
+}
+.light .neon-border {
+  box-shadow: 0 0 0 1px hsla(var(--neon-glow), 0.15),
+              0 4px 16px -4px hsla(var(--neon-glow), 0.2);
+}
+
+.animate-pulse-slow { animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+.animate-float      { animation: float 6s ease-in-out infinite; }
+@keyframes float    { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-8px); } }
+@keyframes shimmer  { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+.shimmer {
+  background: linear-gradient(90deg, transparent, hsla(var(--neon-glow), 0.12), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+/* Light mode needs a darker shimmer overlay so it's visible on white cards */
+.light .shimmer {
+  background: linear-gradient(90deg, transparent, hsla(210, 30%, 75%, 0.35), transparent);
+  background-size: 200% 100%;
+}
+
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+.chat-bubble-ai {
+  background: linear-gradient(135deg, hsla(var(--neon-glow), 0.12), hsla(var(--neon-pink), 0.07));
+  border: 1px solid hsla(var(--neon-glow), 0.25);
+  color: hsl(var(--card-foreground));
+}
+.chat-bubble-user {
+  background: linear-gradient(135deg, hsla(var(--neon-glow), 0.35), hsla(var(--neon-pink), 0.25));
+  color: hsl(var(--card-foreground));
+}
+.light .chat-bubble-user {
+  /* In light mode, give user bubble a solid teal background for readability */
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
