@@ -7,14 +7,22 @@
  * This is more robust than asking the model to "go look at the site" — we control the source
  * of truth (the HTML) and only use the model for unstructured → structured conversion.
  */
-import { chromium, type Browser } from 'playwright';
+// playwright is imported lazily inside fetchRenderedHTML so that Vercel / serverless
+// builds that DON'T include the Chromium binary don't crash at module-load time.
 import * as cheerio from 'cheerio';
 import { extractWithLLM } from './llm';
 
-let _browser: Browser | null = null;
+let _browser: any = null;
 
 async function browser() {
   if (_browser && _browser.isConnected()) return _browser;
+  const { chromium } = await import('playwright').catch(() => {
+    throw new Error(
+      'Playwright is not available in this runtime. Scrapers can only run on a host with ' +
+      'the Chromium binary installed (local dev, Fly.io, Railway, VPS). Vercel serverless ' +
+      'functions cannot host Playwright — call this endpoint from a separate worker.',
+    );
+  });
   _browser = await chromium.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
