@@ -1,21 +1,26 @@
 'use client';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseBrowser';
+import { supabase, supabaseConfigured } from '@/lib/supabaseBrowser';
 import { base44 } from '@/api/base44Client';
 
-const DEV_BYPASS = process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === 'true';
-const DEV_USER = {
+/**
+ * Demo mode (auto sign-in as Demo User) kicks in when EITHER:
+ *  - NEXT_PUBLIC_DEV_BYPASS_AUTH=true   (explicit, even with Supabase configured)
+ *  - Supabase env vars are missing      (graceful default — app works out of the box)
+ * Force real-auth even without Supabase: set NEXT_PUBLIC_DEV_BYPASS_AUTH=false.
+ */
+const explicitBypass = process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH;
+const DEMO_MODE = explicitBypass === 'false'
+  ? false
+  : (explicitBypass === 'true' || !supabaseConfigured);
+
+const DEMO_USER = {
   id: '00000000-0000-4000-8000-000000000001',
-  email: 'dev@tempo-ai-hub.local',
-  full_name: 'Dev User',
+  email: 'demo@tempo-ai-hub.local',
+  full_name: 'Demo User',
   role: 'admin',
 };
 
-/**
- * Drop-in replacement for the old Base44 AuthContext.
- * Same hook shape — useAuth() still returns { user, isAuthenticated, isLoadingAuth, isLoadingPublicSettings,
- * authError, appPublicSettings, authChecked, logout, navigateToLogin, checkUserAuth, checkAppState }.
- */
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
@@ -25,11 +30,12 @@ export const AuthProvider = ({ children }) => {
   const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(false);
   const [authError, setAuthError]                         = useState(null);
   const [authChecked, setAuthChecked]                     = useState(false);
+  const [demoMode] = useState(DEMO_MODE);
   const [appPublicSettings] = useState({ id: 'tempo-ai-hub', public_settings: {} });
 
   const refreshUser = async () => {
-    if (DEV_BYPASS) {
-      setUser(DEV_USER);
+    if (DEMO_MODE) {
+      setUser(DEMO_USER);
       setIsAuthenticated(true);
       setAuthError(null);
       setIsLoadingAuth(false);
@@ -54,7 +60,7 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     refreshUser();
-    if (DEV_BYPASS) return;            // no Supabase auth listener in dev-bypass mode
+    if (DEMO_MODE) return;            // no Supabase auth listener in demo mode
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') {
         setUser(null);
@@ -68,16 +74,20 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const logout = (shouldRedirect = false) => {
+    if (DEMO_MODE) return;            // no-op in demo mode (no real session to clear)
     base44.auth.logout(shouldRedirect ? window.location.href : null);
     setUser(null);
     setIsAuthenticated(false);
   };
-  const navigateToLogin = () => base44.auth.redirectToLogin(window.location.href);
+  const navigateToLogin = () => {
+    if (DEMO_MODE) return;            // no real login in demo mode
+    base44.auth.redirectToLogin(window.location.href);
+  };
 
   return (
     <AuthContext.Provider value={{
       user, isAuthenticated, isLoadingAuth, isLoadingPublicSettings, authError,
-      appPublicSettings, authChecked,
+      appPublicSettings, authChecked, demoMode,
       logout, navigateToLogin,
       checkUserAuth: refreshUser, checkAppState: refreshUser,
     }}>

@@ -15,6 +15,7 @@ import ProfileMenu from '@/components/layout/ProfileMenu';
 import ThemeSwitcher from '@/components/layout/ThemeSwitcher';
 import LanguageSwitcher from '@/components/layout/LanguageSwitcher';
 import { useI18n } from '@/lib/I18nContext';
+import { useAuth } from '@/lib/AuthContext';
 
 const navItems = [
   { path: '/',           icon: MessageSquare,    key: 'nav.ai_assistant',  en: 'AI Assistant' },
@@ -56,13 +57,16 @@ const NO_FOOTER_PATHS = ['/admin'];
 export default function Layout() {
   const location = useLocation();
   const { t, lang } = useI18n();
+  const { demoMode } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [tabletSidebarOpen, setTabletSidebarOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [demoBannerDismissed, setDemoBannerDismissed] = useState(false);
 
   const showCarousel = SHOW_CAROUSEL_PATHS.includes(location.pathname);
   const hideFooter   = NO_FOOTER_PATHS.includes(location.pathname);
+  const showDemoBanner = demoMode && !demoBannerDismissed;
 
   useEffect(() => {
     base44.entities.Notification.list('-created_date', 20).then(data => {
@@ -328,6 +332,26 @@ export default function Layout() {
       {/* Main Content */}
       <main className={`flex-1 overflow-y-auto min-h-screen flex flex-col transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'}`}>
         <div className="pt-16 lg:pt-24 flex-1">
+          {/* Demo-mode banner — appears once until dismissed for the session */}
+          {showDemoBanner && (
+            <div className="mx-4 mt-2 lg:mx-6 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 text-amber-300">
+                <span>🧪</span>
+                <span>
+                  {t('demo.banner', {
+                    en: 'Demo mode — auto-signed-in as Demo User. Connect Supabase to enable real login.',
+                    th: 'โหมดทดลอง — เข้าใช้งานเป็น Demo User อัตโนมัติ ต่อ Supabase เพื่อเปิด login จริง',
+                    ja: 'デモモード — Demo User として自動サインイン中。Supabase を接続すると本物のログインが有効になります',
+                    zh: '演示模式 — 已自动登录为 Demo User。连接 Supabase 以启用真实登录',
+                    ko: '데모 모드 — Demo User로 자동 로그인됨. Supabase 연결 시 실제 로그인 활성화',
+                  })}
+                </span>
+              </div>
+              <button onClick={() => setDemoBannerDismissed(true)} className="text-amber-300/70 hover:text-amber-200 flex-shrink-0" aria-label="Dismiss">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
           {showCarousel && <EventCarousel />}
           <Outlet />
         </div>
