@@ -1,25 +1,68 @@
 /**
- * Tiny wrapper: send a prompt to the AI provider configured via env.
- * Priority: OpenRouter (default) → OpenAI → Gemini.
- * If `responseJsonSchema` is provided, attempt to JSON.parse the model's reply.
+ * Unified LLM call — routes to whichever provider the admin configured in
+ * Settings (runtime settings), falling back to env. Supports all 5 providers:
+ * OpenRouter, OpenAI, Anthropic, Gemini, Ollama.
+ *
+ * Key resolution per call: opts.apiKey  >  opts.keys[provider]  >  getEffectiveKey(provider)
+ * (so a key pasted in the UI / sent from the browser works on serverless, and
+ * env keys work in production).
  */
+import { getSettings, getEffectiveKey } from './settings';
+
 export type ExtractOptions = {
   prompt: string;
-  /** Optional override; otherwise use OPENROUTER_DEFAULT_MODEL / OPENAI_DEFAULT_MODEL. */
   model?: string;
   responseJsonSchema?: unknown;
-  /** Hint that the prompt operates on HTML text — gives us a bit more max_tokens. */
-  longContext?: boolean;
+  longContext?: boolean;           // scrapers: bigger token budget, low temperature
+  provider?: string;               // override the configured provider
+  apiKey?: string;                 // single explicit key override
+  keys?: Record<string, string>;   // per-provider keys sent from the client
+  ollamaUrl?: string;              // override Ollama base URL
+  temperature?: number;
+  maxTokens?: number;
 };
 
+function defaultModel(provider: string): string {
+  switch (provider) {
+    case 'openrouter': return process.env.OPENROUTER_DEFAULT_MODEL || 'google/gemini-2.0-flash-exp:free';
+    case 'openai':     return process.env.OPENAI_DEFAULT_MODEL || 'gpt-4o-mini';
+    case 'anthropic':  return 'claude-3-5-sonnet-latest';
+    case 'gemini':     return process.env.GEMINI_DEFAULT_MODEL || 'gemini-2.0-flash';
+    case 'ollama':     return 'llama3.2';
+    default:           return 'google/gemini-2.0-flash-exp:free';
+  }
+}
+
 export async function extractWithLLM<T = any>(opts: ExtractOptions): Promise<T | string> {
-  const provider = (process.env.LLM_PROVIDER || 'openrouter').toLowerCase();
-  const maxTokens = opts.longContext ? 6000 : 2000;
+  const ai = getSettings().ai;
+  const provider = (opts.provider || ai.provider || process.env.LLM_PROVIDER || 'openrouter').toLowerCase();
+  const model = opts.model || ai.model || defaultModel(provider);
+  const expectJson = !!opts.responseJsonSchema;
+  const maxTokens = opts.maxTokens ?? (opts.longContext ? 6000 : (ai.maxTokens || 2000));
+  // scrapers (longContext) stay deterministic; chat uses the configured temperature
+  const temperature = opts.temperature ?? (opts.longContext ? 0.2 : (typeof ai.temperature === 'number' ? ai.temperature : 0.7));
+  const key = (opts.apiKey && opts.apiKey.trim()) || opts.keys?.[provider] || getEffectiveKey(provider);
+
+  if (provider === 'ollama') {
+    const url = (opts.ollamaUrl || ai.ollamaUrl || 'http://localhost:11434').replace(/\/$/, '');
+    const r = await fetch(`${url}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model, stream: false,
+        messages: [{ role: 'user', content: opts.prompt }],
+        options: { temperature },
+        ...(expectJson ? { format: 'json' } : {}),
+      }),
+    });
+    if (!r.ok) throw new Error(`Ollama ${r.status}: ${await r.text()}`);
+    const data = await r.json();
+    return parseMaybeJson<T>(data?.message?.content ?? '', expectJson);
+  }
+
+  if (!key) throw new Error(`${provider} API key not set (paste it in Admin → AI, or set the env var)`);
 
   if (provider === 'openrouter') {
-    const key = process.env.OPENROUTER_API_KEY;
-    if (!key) throw new Error('OPENROUTER_API_KEY not set');
-    const model = opts.model || process.env.OPENROUTER_DEFAULT_MODEL || 'google/gemini-2.0-flash-exp:free';
     const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -31,63 +74,63 @@ export async function extractWithLLM<T = any>(opts: ExtractOptions): Promise<T |
       body: JSON.stringify({
         model,
         messages: [{ role: 'user', content: opts.prompt }],
-        temperature: 0.2,
-        max_tokens: maxTokens,
-        ...(opts.responseJsonSchema
-          ? { response_format: { type: 'json_object' } } // works on Gemini/OpenAI; ignored elsewhere
-          : {}),
+        temperature, max_tokens: maxTokens,
+        ...(expectJson ? { response_format: { type: 'json_object' } } : {}),
       }),
     });
     if (!r.ok) throw new Error(`OpenRouter ${r.status}: ${await r.text()}`);
     const data = await r.json();
-    const content: string = data?.choices?.[0]?.message?.content ?? '';
-    return parseMaybeJson<T>(content, !!opts.responseJsonSchema);
+    return parseMaybeJson<T>(data?.choices?.[0]?.message?.content ?? '', expectJson);
   }
 
   if (provider === 'openai') {
-    const key = process.env.OPENAI_API_KEY;
-    if (!key) throw new Error('OPENAI_API_KEY not set');
-    const model = opts.model || process.env.OPENAI_DEFAULT_MODEL || 'gpt-4o-mini';
     const r = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model,
         messages: [{ role: 'user', content: opts.prompt }],
-        temperature: 0.2,
-        max_tokens: maxTokens,
-        ...(opts.responseJsonSchema ? { response_format: { type: 'json_object' } } : {}),
+        temperature, max_tokens: maxTokens,
+        ...(expectJson ? { response_format: { type: 'json_object' } } : {}),
       }),
     });
     if (!r.ok) throw new Error(`OpenAI ${r.status}: ${await r.text()}`);
     const data = await r.json();
-    const content: string = data?.choices?.[0]?.message?.content ?? '';
-    return parseMaybeJson<T>(content, !!opts.responseJsonSchema);
+    return parseMaybeJson<T>(data?.choices?.[0]?.message?.content ?? '', expectJson);
+  }
+
+  if (provider === 'anthropic') {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model, max_tokens: maxTokens, temperature,
+        messages: [{ role: 'user', content: opts.prompt }],
+      }),
+    });
+    if (!r.ok) throw new Error(`Anthropic ${r.status}: ${await r.text()}`);
+    const data = await r.json();
+    return parseMaybeJson<T>(data?.content?.[0]?.text ?? '', expectJson);
   }
 
   if (provider === 'gemini') {
-    const key = process.env.GEMINI_API_KEY;
-    if (!key) throw new Error('GEMINI_API_KEY not set');
-    const model = opts.model || process.env.GEMINI_DEFAULT_MODEL || 'gemini-2.0-flash';
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: opts.prompt }] }],
         generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: maxTokens,
-          ...(opts.responseJsonSchema ? { responseMimeType: 'application/json' } : {}),
+          temperature, maxOutputTokens: maxTokens,
+          ...(expectJson ? { responseMimeType: 'application/json' } : {}),
         },
       }),
     });
     if (!r.ok) throw new Error(`Gemini ${r.status}: ${await r.text()}`);
     const data = await r.json();
-    const content: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-    return parseMaybeJson<T>(content, !!opts.responseJsonSchema);
+    return parseMaybeJson<T>(data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '', expectJson);
   }
 
-  throw new Error(`Unknown LLM_PROVIDER: ${provider}`);
+  throw new Error(`Unknown provider: ${provider}`);
 }
 
 function parseMaybeJson<T>(content: string, expectJson: boolean): T | string {

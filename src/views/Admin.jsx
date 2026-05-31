@@ -412,6 +412,19 @@ export default function Admin() {
     })();
   }, []);
 
+  // Mirror the AI config to localStorage so the chat (and any browser tab) can
+  // route to the configured provider — backend runtime state isn't shared across
+  // serverless instances, so the client carries provider/model/system per request.
+  useEffect(() => {
+    if (!settings?.ai) return;
+    try {
+      localStorage.setItem('ai_provider', settings.ai.provider || '');
+      localStorage.setItem('ai_model', settings.ai.model || '');
+      localStorage.setItem('ai_system_prompt', settings.ai.systemPrompt || '');
+      localStorage.setItem('ai_temperature', String(settings.ai.temperature ?? ''));
+    } catch { /* ignore */ }
+  }, [settings?.ai?.provider, settings?.ai?.model, settings?.ai?.systemPrompt, settings?.ai?.temperature]);
+
   // ── Backend settings handlers ──
   const patch = (section, values) => {
     setSettings(prev => ({ ...prev, [section]: { ...prev[section], ...values } }));

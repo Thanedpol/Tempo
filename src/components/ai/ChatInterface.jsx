@@ -104,12 +104,6 @@ export default function ChatInterface({ sessionId, onSessionUpdate }) {
     }]);
 
     try {
-       const ollamaUrl = localStorage.getItem('api_ollama_url');
-       const ollamaModel = localStorage.getItem('api_ollama_model') || 'llama3.2';
-       const openrouterModel = localStorage.getItem('api_openrouter_model') || 'meta-llama/llama-3.3-70b-instruct:free';
-
-       const useOllama = !!ollamaUrl;
-
        const langName = ({ en: 'English', th: 'Thai', ja: 'Japanese', zh: 'Simplified Chinese', ko: 'Korean' })[lang] || 'English';
        const prompt = `You are the Agentic AI Entertain Assistant — a smart concierge for concert tickets and entertainment events in Thailand.
 
@@ -158,32 +152,40 @@ export default function ChatInterface({ sessionId, onSessionUpdate }) {
 
     สร้างข้อมูลตัวอย่างที่เหมาะสม 2-3 รายการสำหรับการค้นหาและแนะนำ ตอบเป็น JSON เท่านั้น`;
 
-       let response;
-       if (useOllama) {
-         response = await base44.functions.invoke('askAIWithOllama', {
-           prompt,
-           ollamaUrl,
-           model: ollamaModel,
-         });
-       } else {
-         response = await base44.functions.invoke('askAIWithOpenRouter', {
-           prompt,
-           model: openrouterModel,
-           response_json_schema: {
-             type: "object",
-             properties: {
-               response: { type: "string" },
-               action: { type: "string" },
-               parameters: { type: "object" },
-               mock_events: { type: "array" },
-               mock_hotels: { type: "array" },
-               needs_captcha: { type: "boolean" },
-               needs_payment_confirm: { type: "boolean" },
-               status: { type: "string" }
-             }
+       // AI config mirrored from Admin → AI tab (carried per-request because backend
+       // runtime state isn't shared across serverless instances).
+       const keys = {};
+       ['openrouter', 'openai', 'anthropic', 'gemini'].forEach(p => {
+         const k = localStorage.getItem('ai_key_' + p);
+         if (k) keys[p] = k;
+       });
+       const provider = localStorage.getItem('ai_provider') || undefined;
+       const model = localStorage.getItem('ai_model') || undefined;
+       const system = localStorage.getItem('ai_system_prompt') || undefined;
+       const ollamaUrl = localStorage.getItem('api_ollama_url') || undefined;
+
+       // Routes to whichever provider the admin configured (OpenRouter/OpenAI/Anthropic/Gemini/Ollama)
+       const response = await base44.functions.invoke('chat', {
+         prompt,
+         provider,
+         model,
+         system,
+         keys,
+         ollamaUrl,
+         response_json_schema: {
+           type: "object",
+           properties: {
+             response: { type: "string" },
+             action: { type: "string" },
+             parameters: { type: "object" },
+             mock_events: { type: "array" },
+             mock_hotels: { type: "array" },
+             needs_captcha: { type: "boolean" },
+             needs_payment_confirm: { type: "boolean" },
+             status: { type: "string" }
            }
-         });
-       }
+         }
+       });
 
       // Remove thinking message
       setMessages(prev => prev.filter(m => m.id !== thinkingId));
