@@ -436,6 +436,9 @@ export default function Admin() {
   const saveApiKey = async () => {
     if (!settings || !apiKeyInput.trim()) return;
     setSavingKey(true);
+    // Keep a durable client copy so it survives Vercel serverless restarts and
+    // can be re-sent with requests (the backend runtime store is per-instance).
+    try { localStorage.setItem('ai_key_' + settings.ai.provider, apiKeyInput.trim()); } catch { /* ignore */ }
     try {
       const r = await fetch('/api/admin/settings', {
         method: 'POST', credentials: 'include',
@@ -465,10 +468,12 @@ export default function Admin() {
     if (!settings) return;
     setTesting(true); setTestResult(null);
     try {
+      const localKey = (typeof window !== 'undefined' && localStorage.getItem('ai_key_' + settings.ai.provider)) || '';
       const r = await fetch('/api/admin/test-llm', {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: settings.ai.provider, model: settings.ai.model }),
+        // send the pasted (or locally-saved) key so Test works pre-save and on Vercel cold starts
+        body: JSON.stringify({ provider: settings.ai.provider, model: settings.ai.model, apiKey: apiKeyInput.trim() || localKey }),
       });
       setTestResult(await r.json());
     } catch (err) {
@@ -1086,7 +1091,8 @@ export default function Admin() {
                   const ENV_NAME = { openrouter: 'OPENROUTER_API_KEY', openai: 'OPENAI_API_KEY', anthropic: 'ANTHROPIC_API_KEY', gemini: 'GEMINI_API_KEY' };
                   const envName = ENV_NAME[settings.ai.provider];
                   if (!envName) return null; // ollama needs no key
-                  const isSet = !!settings.env?.[envName];
+                  const localKey = (typeof window !== 'undefined' && localStorage.getItem('ai_key_' + settings.ai.provider)) || '';
+                  const isSet = !!settings.env?.[envName] || !!localKey;
                   return (
                     <div className="space-y-1.5 pt-2 border-t border-border/30">
                       <div className="flex items-center gap-2">

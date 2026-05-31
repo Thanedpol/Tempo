@@ -331,8 +331,8 @@ export default function Layout() {
         <div className="pt-16 lg:pt-24 flex-1">
           {/* Demo-mode banner — appears once until dismissed for the session */}
           {showDemoBanner && (
-            <div className="mx-4 mt-2 lg:mx-6 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 flex items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2 text-amber-300">
+            <div className="mx-4 mt-2 lg:mx-6 rounded-xl border border-amber-500/40 dark:border-amber-500/30 bg-amber-500/15 dark:bg-amber-500/10 px-4 py-2.5 flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
                 <span>🧪</span>
                 <span>
                   {t('demo.banner', {
@@ -344,7 +344,7 @@ export default function Layout() {
                   })}
                 </span>
               </div>
-              <button onClick={() => setDemoBannerDismissed(true)} className="text-amber-300/70 hover:text-amber-200 flex-shrink-0" aria-label="Dismiss">
+              <button onClick={() => setDemoBannerDismissed(true)} className="text-amber-700/70 hover:text-amber-900 dark:text-amber-300/70 dark:hover:text-amber-200 flex-shrink-0" aria-label="Dismiss">
                 <X className="w-4 h-4" />
               </button>
             </div>

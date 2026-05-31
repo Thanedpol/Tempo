@@ -20,12 +20,16 @@ export async function POST(req: NextRequest) {
   const cfg = getSettings().ai;
   const provider = overrideProvider || cfg.provider;
   const model    = overrideModel    || cfg.model;
+  // Key sent with the request (from the UI field / localStorage) wins, so "Test"
+  // works even before saving and on serverless instances that lost the runtime key.
+  const overrideKey = (typeof body.apiKey === 'string' ? body.apiKey : '').trim();
+  const keyFor = (p: string) => overrideKey || getEffectiveKey(p);
 
   const startedAt = Date.now();
   try {
     let text = '';
     if (provider === 'openrouter') {
-      const key = getEffectiveKey('openrouter');
+      const key = keyFor('openrouter');
       if (!key) throw new Error('OpenRouter API key not set (paste it in the AI tab or set OPENROUTER_API_KEY)');
       const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
@@ -36,7 +40,7 @@ export async function POST(req: NextRequest) {
       const data = await r.json();
       text = data?.choices?.[0]?.message?.content ?? '';
     } else if (provider === 'openai') {
-      const key = getEffectiveKey('openai');
+      const key = keyFor('openai');
       if (!key) throw new Error('OpenAI API key not set (paste it in the AI tab or set OPENAI_API_KEY)');
       const r = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -47,7 +51,7 @@ export async function POST(req: NextRequest) {
       const data = await r.json();
       text = data?.choices?.[0]?.message?.content ?? '';
     } else if (provider === 'gemini') {
-      const key = getEffectiveKey('gemini');
+      const key = keyFor('gemini');
       if (!key) throw new Error('Gemini API key not set (paste it in the AI tab or set GEMINI_API_KEY)');
       const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
         method: 'POST',
@@ -58,7 +62,7 @@ export async function POST(req: NextRequest) {
       const data = await r.json();
       text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
     } else if (provider === 'anthropic') {
-      const key = getEffectiveKey('anthropic');
+      const key = keyFor('anthropic');
       if (!key) throw new Error('Anthropic API key not set (paste it in the AI tab or set ANTHROPIC_API_KEY)');
       const r = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
