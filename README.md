@@ -8,6 +8,34 @@
 
 > 🇹🇭 อ่านภาษาไทย → [ภาษาไทย](#thai)
 
+**Tempo** is an AI concierge for live events in Thailand — find concerts, buy tickets, and book a
+place to stay near the venue, all in one chat-first app, instead of juggling several websites.
+
+### Who it's for
+- **Gen Z & Gen Y** in Thailand (students / early-career) who live on their phones
+- **K-Pop & T-Pop fans** chasing fast-selling shows
+- **Event tourists** travelling for a concert who also need a place to stay nearby
+
+### Problems we set out to solve
+The pain points of buying concert tickets in Thailand today:
+1. Crashes / getting kicked out of the payment page
+2. Money charged but no ticket received
+3. Scalper bots sweeping tickets & resale-market fraud
+4. Hidden fees / opaque pricing
+5. Weak security & bot protection
+6. Unclear contracts — postponement / cancellation / member pre-sale rights
+7. Slow ticket delivery & hard-to-reach customer support
+
+### Why Tempo / benefits
+- 🤖 **An AI assistant does the work** — say what you want; it searches, compares and recommends
+- 💸 **Transparent pricing** — ticket + fee + total shown before you pay
+- 🏨 **Ticket + nearby stay in one place** — ideal for fans travelling to a show
+- 🛡️ **Trustworthy by design** *(in progress)* — resilient payments, anti-bot, fair refunds, reliable delivery
+
+> **Status:** a working **MVP / demo** — strong on audience & vision; most data is still mock and
+> several trust features are on the roadmap. See [`docs/GAP_ANALYSIS_AND_ROADMAP.md`](./docs/GAP_ANALYSIS_AND_ROADMAP.md).
+
+### Tech stack
 Replaces the Base44 backend with **Next.js + Supabase + Playwright**. The original React frontend
 (pages, components, styling) is reused unchanged. Only the API surface and auth were rewritten.
 
@@ -155,6 +183,34 @@ npm run lint
 
 > 🇬🇧 Read in English → [English](#english)
 
+**Tempo** คือผู้ช่วยอัจฉริยะ (Agentic AI) สำหรับงานคอนเสิร์ต/อีเวนต์ในไทย — ช่วย **ค้นหางาน → ซื้อตั๋ว →
+จองที่พักใกล้สถานที่จัดงาน** จบในแอปเดียวแบบแชต แทนที่จะต้องเปิดหลายเว็บและจัดการเองทีละขั้น
+
+### ทำเพื่อใคร
+- **Gen Z และ Gen Y** ในไทย (นักศึกษา / วัยทำงานตอนต้น) ที่ใช้มือถือเป็นหลัก
+- **แฟน K-Pop / T-Pop** ที่ต้องลุ้นตั๋วรอบที่ขายหมดไว
+- **นักท่องเที่ยวสาย Event** ที่เดินทางมาดูงานและต้องการที่พักใกล้ ๆ
+
+### แก้ปัญหาอะไร
+Pain points ของการซื้อตั๋วคอนเสิร์ตในไทยทุกวันนี้:
+1. ระบบล่ม / เด้งออกจากหน้าชำระเงิน
+2. ตัดเงินสำเร็จแต่ไม่ได้รับตั๋ว
+3. มิจฉาชีพ/บอทกวาดตั๋ว และการโกงในตลาดรอง
+4. ความไม่โปร่งใสเรื่องราคา (ค่าธรรมเนียมแฝง)
+5. ระบบความปลอดภัย/ป้องกันบอทอ่อนแอ
+6. ข้อสัญญา การเลื่อน/ยกเลิกงาน และสิทธิ์สมาชิกพิเศษไม่ชัดเจน
+7. การจัดส่งตั๋วล่าช้า และติดต่อฝ่ายสนับสนุนยาก
+
+### ทำไมต้อง Tempo / ประโยชน์
+- 🤖 **มีผู้ช่วย AI ทำงานให้** — บอกความต้องการเป็นภาษาคน แล้ว AI ค้นหา/เปรียบเทียบ/แนะนำให้
+- 💸 **ราคาโปร่งใส** — เห็นราคาบัตร + ค่าธรรมเนียม + ยอดรวม ก่อนกดจ่าย
+- 🏨 **ตั๋ว + ที่พักใกล้งาน จบที่เดียว** — เหมาะกับแฟนเพลงที่เดินทางมาดูงาน
+- 🛡️ **น่าเชื่อถือตั้งแต่ออกแบบ** *(กำลังพัฒนา)* — จ่ายเงินทนทาน, กันบอท, คืนเงินเป็นธรรม, ส่งตั๋วชัวร์
+
+> **สถานะ:** เป็น **MVP / Demo ที่ใช้งานได้** — ตอบกลุ่มเป้าหมายและวิสัยทัศน์ได้ดี แต่ข้อมูลส่วนใหญ่ยังเป็น mock
+> และฟีเจอร์ด้านความน่าเชื่อถือหลายอย่างยังอยู่ใน roadmap · ดู [`docs/GAP_ANALYSIS_AND_ROADMAP.md`](./docs/GAP_ANALYSIS_AND_ROADMAP.md)
+
+### เทคโนโลยีที่ใช้
 โปรเจกต์นี้แทนที่ backend เดิม (Base44) ด้วย **Next.js + Supabase + Playwright** โดย frontend ฝั่ง React เดิม
 (หน้าเพจ, คอมโพเนนต์, สไตล์) ถูกนำกลับมาใช้แบบไม่แก้ — เขียนใหม่เฉพาะส่วน API และระบบยืนยันตัวตน (auth) เท่านั้น
 
