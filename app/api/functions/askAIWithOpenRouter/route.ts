@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/server/supabaseServer';
+import { getEffectiveKey } from '@/server/settings';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
 
   if (!prompt) return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
 
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = getEffectiveKey('openrouter');
   if (!apiKey) return NextResponse.json({ error: 'OpenRouter API key not configured' }, { status: 500 });
 
   const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/server/guards';
-import { getSettings } from '@/server/settings';
+import { getSettings, getEffectiveKey } from '@/server/settings';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,8 +25,8 @@ export async function POST(req: NextRequest) {
   try {
     let text = '';
     if (provider === 'openrouter') {
-      const key = process.env.OPENROUTER_API_KEY;
-      if (!key) throw new Error('OPENROUTER_API_KEY not set in .env.local');
+      const key = getEffectiveKey('openrouter');
+      if (!key) throw new Error('OpenRouter API key not set (paste it in the AI tab or set OPENROUTER_API_KEY)');
       const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
@@ -36,8 +36,8 @@ export async function POST(req: NextRequest) {
       const data = await r.json();
       text = data?.choices?.[0]?.message?.content ?? '';
     } else if (provider === 'openai') {
-      const key = process.env.OPENAI_API_KEY;
-      if (!key) throw new Error('OPENAI_API_KEY not set in .env.local');
+      const key = getEffectiveKey('openai');
+      if (!key) throw new Error('OpenAI API key not set (paste it in the AI tab or set OPENAI_API_KEY)');
       const r = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
@@ -47,8 +47,8 @@ export async function POST(req: NextRequest) {
       const data = await r.json();
       text = data?.choices?.[0]?.message?.content ?? '';
     } else if (provider === 'gemini') {
-      const key = process.env.GEMINI_API_KEY;
-      if (!key) throw new Error('GEMINI_API_KEY not set in .env.local');
+      const key = getEffectiveKey('gemini');
+      if (!key) throw new Error('Gemini API key not set (paste it in the AI tab or set GEMINI_API_KEY)');
       const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -58,8 +58,8 @@ export async function POST(req: NextRequest) {
       const data = await r.json();
       text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
     } else if (provider === 'anthropic') {
-      const key = process.env.ANTHROPIC_API_KEY;
-      if (!key) throw new Error('ANTHROPIC_API_KEY not set in .env.local');
+      const key = getEffectiveKey('anthropic');
+      if (!key) throw new Error('Anthropic API key not set (paste it in the AI tab or set ANTHROPIC_API_KEY)');
       const r = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },

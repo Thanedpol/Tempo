@@ -4,6 +4,7 @@ import { X, CreditCard, Shield, CheckCircle, Loader2, Ticket, MapPin, Calendar, 
 import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
 import { useI18n } from '@/lib/I18nContext';
+import { getDefaultMethod } from '@/lib/paymentPrefs';
 
 // Platform service fee (kept explicit for price transparency — pain point #4).
 // 0 for now; surface it so the user always sees the full breakdown before paying.
@@ -16,7 +17,8 @@ function uuid() {
 export default function PaymentConfirmModal({ open, onClose, event }) {
   const { t } = useI18n();
   const [step, setStep] = useState('confirm'); // confirm | qr | processing | success | error
-  const [selectedCard, setSelectedCard] = useState('promptpay');
+  // Default to the user's preferred method from Settings (promptpay vs card).
+  const [selectedCard, setSelectedCard] = useState(() => (getDefaultMethod() === 'promptpay' ? 'promptpay' : 'visa'));
   const [payment, setPayment] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
   const idemRef = useRef(null);

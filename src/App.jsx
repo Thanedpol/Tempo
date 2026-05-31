@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { I18nProvider } from '@/lib/I18nContext';
@@ -20,6 +20,7 @@ import AdminRoute from '@/components/AdminRoute';
 import EventDetail from '@/views/EventDetail';
 import HotelDetail from '@/views/HotelDetail';
 import FAQs from '@/views/FAQs';
+import Settings from '@/views/Settings';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -58,8 +59,8 @@ const AuthenticatedApp = () => {
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
-        {/* Settings merged into Admin Panel — keep old links working */}
-        <Route path="/settings" element={<Navigate to="/admin" replace />} />
+        {/* User Settings — payment methods + favorite concerts (admins get an Admin Panel shortcut) */}
+        <Route path="/settings" element={<Settings />} />
         <Route path="/events/:id" element={<EventDetail />} />
         <Route path="/hotels/:id" element={<HotelDetail />} />
         <Route path="/faqs" element={<FAQs />} />

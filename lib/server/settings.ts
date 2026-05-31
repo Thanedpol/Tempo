@@ -75,13 +75,37 @@ function clone<T>(o: T): T { return JSON.parse(JSON.stringify(o)); }
 export function getSettings(): Settings { return runtime; }
 export function getDefaults(): Settings { return DEFAULTS; }
 
+// ─── Runtime API keys (admin can paste a key in the UI without redeploying) ──
+// NOTE: in-process only — resets on restart / not shared across serverless
+// instances. For permanent prod keys, set the env vars below in Vercel.
+const runtimeKeys: Record<string, string> = {};
+const ENV_BY_PROVIDER: Record<string, string> = {
+  openrouter: 'OPENROUTER_API_KEY',
+  openai:     'OPENAI_API_KEY',
+  anthropic:  'ANTHROPIC_API_KEY',
+  gemini:     'GEMINI_API_KEY',
+};
+
+export function setRuntimeKey(provider: string, value: string) {
+  if (!ENV_BY_PROVIDER[provider]) return;
+  if (value && value.trim()) runtimeKeys[provider] = value.trim();
+  else delete runtimeKeys[provider];
+}
+
+/** Effective key = key pasted in the UI (runtime) wins, else the env var. */
+export function getEffectiveKey(provider: string): string {
+  const envName = ENV_BY_PROVIDER[provider];
+  return runtimeKeys[provider] || (envName ? process.env[envName] : '') || '';
+}
+
 /** Merge partial updates into runtime settings. Returns the new full settings. */
-export function updateSettings(patch: Partial<Settings>): Settings {
+export function updateSettings(patch: Partial<Settings> & { keys?: Record<string, string> }): Settings {
   if (patch.ai)        runtime.ai        = { ...runtime.ai,        ...patch.ai };
   if (patch.crawler)   runtime.crawler   = { ...runtime.crawler,   ...patch.crawler,
     enabledSources: { ...runtime.crawler.enabledSources, ...(patch.crawler.enabledSources || {}) },
   };
   if (patch.affiliate) runtime.affiliate = { ...runtime.affiliate, ...patch.affiliate };
+  if (patch.keys)      for (const [k, v] of Object.entries(patch.keys)) setRuntimeKey(k, String(v ?? ''));
   return runtime;
 }
 
@@ -96,10 +120,10 @@ export function getPublicSettings() {
   return {
     ...s,
     env: {
-      OPENROUTER_API_KEY:        mask(process.env.OPENROUTER_API_KEY),
-      OPENAI_API_KEY:            mask(process.env.OPENAI_API_KEY),
-      GEMINI_API_KEY:            mask(process.env.GEMINI_API_KEY),
-      ANTHROPIC_API_KEY:         mask(process.env.ANTHROPIC_API_KEY),
+      OPENROUTER_API_KEY:        mask(getEffectiveKey('openrouter')),
+      OPENAI_API_KEY:            mask(getEffectiveKey('openai')),
+      GEMINI_API_KEY:            mask(getEffectiveKey('gemini')),
+      ANTHROPIC_API_KEY:         mask(getEffectiveKey('anthropic')),
       SUPABASE_URL:              !!process.env.NEXT_PUBLIC_SUPABASE_URL,
       SUPABASE_ANON_KEY:         !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,

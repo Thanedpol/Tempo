@@ -393,6 +393,9 @@ export default function Admin() {
   const [savingSettings, setSavingSettings] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [savingKey, setSavingKey] = useState(false);
+  const [showKey, setShowKey] = useState(false);
 
   useEffect(() => {
     base44.entities.Event.list('-created_date', 100)
@@ -427,6 +430,22 @@ export default function Admin() {
       else toast.error('บันทึกการตั้งค่าล้มเหลว');
     } finally {
       setSavingSettings(false);
+    }
+  };
+
+  const saveApiKey = async () => {
+    if (!settings || !apiKeyInput.trim()) return;
+    setSavingKey(true);
+    try {
+      const r = await fetch('/api/admin/settings', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keys: { [settings.ai.provider]: apiKeyInput.trim() } }),
+      });
+      if (r.ok) { setSettings(await r.json()); setApiKeyInput(''); toast.success('บันทึก API Key แล้ว'); }
+      else toast.error('บันทึก API Key ล้มเหลว');
+    } finally {
+      setSavingKey(false);
     }
   };
 
@@ -1059,9 +1078,47 @@ export default function Admin() {
                   </Button>
                   {testResult && <TestPill r={testResult} />}
                 </div>
+
+                {/* Editable API key for the selected provider — saved to backend runtime */}
+                {(() => {
+                  const ENV_NAME = { openrouter: 'OPENROUTER_API_KEY', openai: 'OPENAI_API_KEY', anthropic: 'ANTHROPIC_API_KEY', gemini: 'GEMINI_API_KEY' };
+                  const envName = ENV_NAME[settings.ai.provider];
+                  if (!envName) return null; // ollama needs no key
+                  const isSet = !!settings.env?.[envName];
+                  return (
+                    <div className="space-y-1.5 pt-2 border-t border-border/30">
+                      <div className="flex items-center gap-2">
+                        <Label className="text-sm font-medium">{envName}</Label>
+                        {isSet
+                          ? <Badge className="text-[10px] bg-green-500/20 text-green-400 border-green-500/30"><CheckCircle className="w-2.5 h-2.5 mr-1" />ตั้งค่าแล้ว</Badge>
+                          : <Badge className="text-[10px] bg-destructive/20 text-destructive border-destructive/30">ยังไม่ตั้งค่า</Badge>}
+                      </div>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Input
+                            type={showKey ? 'text' : 'password'}
+                            value={apiKeyInput}
+                            onChange={e => setApiKeyInput(e.target.value)}
+                            placeholder={settings.ai.provider === 'openrouter' ? 'sk-or-v1-...' : 'วาง API key ที่นี่'}
+                            className="pr-10 bg-secondary/30 border-border/50 font-mono text-sm"
+                          />
+                          <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                            {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        <Button size="sm" onClick={saveApiKey} disabled={!apiKeyInput.trim() || savingKey} className="bg-gradient-to-r from-primary to-accent">
+                          {savingKey ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        วาง key แล้วกดบันทึกเพื่อใช้งานทันที (ไม่ต้อง redeploy) · เพื่อความถาวร แนะนำตั้ง <span className="font-mono">{envName}</span> ใน Vercel env ด้วย
+                      </p>
+                    </div>
+                  );
+                })()}
               </SectionCard>
 
-              <SectionCard icon={ShieldCheck} title="API Keys (อ่านอย่างเดียว)" desc="กรอกใน .env.local แล้ว restart server — AI key ไม่เก็บใน localStorage อีกต่อไป">
+              <SectionCard icon={ShieldCheck} title="API Keys (อ่านอย่างเดียว)" desc="กรอกใน .env.local / Vercel env แล้ว restart — หรือใช้ช่องด้านบนกรอกชั่วคราว">
                 <div className="grid sm:grid-cols-2 gap-2 text-sm">
                   <KeyStatus label="OPENROUTER_API_KEY" value={settings.env.OPENROUTER_API_KEY} />
                   <KeyStatus label="OPENAI_API_KEY"     value={settings.env.OPENAI_API_KEY} />

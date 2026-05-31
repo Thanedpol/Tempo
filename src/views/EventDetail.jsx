@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, MapPin, Calendar, Ticket, Zap, Music } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, Ticket, Zap, Music, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 import PaymentConfirmModal from '@/components/bookings/PaymentConfirmModal';
 import { useI18n } from '@/lib/I18nContext';
+import { useFavorites, toggleFavorite } from '@/lib/favorites';
 
 export default function EventDetail() {
   const location = useLocation();
@@ -15,6 +16,8 @@ export default function EventDetail() {
   const event = location.state?.event;
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [selectedZone, setSelectedZone] = useState(null);
+  const favs = useFavorites();
+  const isFav = !!event && favs.some(f => String(f.id) === String(event.id));
 
   const statusMap = {
     on_sale:   { label: t('event.status.on_sale',   { en: 'On Sale',  th: 'เปิดขาย',  ja: '販売中',     zh: '开售中',   ko: '판매 중' }), class: 'bg-green-500/20 text-green-400 border-green-500/30' },
@@ -52,6 +55,13 @@ export default function EventDetail() {
           <Badge className="bg-black/50 backdrop-blur-sm text-white border-white/20">{event.source_platform}</Badge>
           <Badge className={status.class}>{status.label}</Badge>
         </div>
+        <button
+          onClick={() => toggleFavorite(event)}
+          aria-label={isFav ? 'Remove from favorites' : 'Add to favorites'}
+          className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm border border-white/20 flex items-center justify-center hover:bg-black/70 transition-colors"
+        >
+          <Heart className={`w-5 h-5 transition-colors ${isFav ? 'fill-pink-500 text-pink-500' : 'text-white'}`} />
+        </button>
         <div className="absolute bottom-5 left-5 right-5">
           <h1 className="font-syne font-bold text-white text-2xl md:text-3xl leading-tight">{event.title}</h1>
           <p className="text-white/70 text-base mt-1">{event.artist}</p>

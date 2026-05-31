@@ -4,7 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { useI18n } from '@/lib/I18nContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, CreditCard, LogOut, ChevronDown, Ticket, ShieldCheck } from 'lucide-react';
+import { User, CreditCard, Settings as SettingsIcon, LogOut, ChevronDown, Ticket, ShieldCheck } from 'lucide-react';
 
 export default function ProfileMenu() {
   const { user, logout } = useAuth();
@@ -111,6 +111,16 @@ export default function ProfileMenu() {
                 <div>
                   <div className="font-medium">{t('profile.edit_profile',    { en: 'Edit Profile',     th: 'แก้ไขโปรไฟล์',  ja: 'プロフィール編集', zh: '编辑资料', ko: '프로필 수정' })}</div>
                   <div className="text-[10px] text-muted-foreground">{t('profile.edit_profile_sub',{ en: 'Name, email, password', th: 'ชื่อ, อีเมล, รหัสผ่าน', ja: '名前、メール、パスワード', zh: '姓名、邮箱、密码', ko: '이름, 이메일, 비밀번호' })}</div>
+                </div>
+              </Link>
+
+              <Link to="/settings" onClick={() => setOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-secondary/80 transition-all text-sm group">
+                <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                  <SettingsIcon className="w-3.5 h-3.5 text-primary" />
+                </div>
+                <div>
+                  <div className="font-medium">{t('profile.settings', { en: 'Settings', th: 'การตั้งค่า', ja: '設定', zh: '设置', ko: '설정' })}</div>
+                  <div className="text-[10px] text-muted-foreground">{t('profile.settings_sub', { en: 'Payment · Favorites', th: 'การชำระเงิน · รายการโปรด', ja: '支払い · お気に入り', zh: '支付 · 收藏', ko: '결제 · 즐겨찾기' })}</div>
                 </div>
               </Link>
 
