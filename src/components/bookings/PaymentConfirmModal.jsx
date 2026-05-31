@@ -1,14 +1,20 @@
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CreditCard, Shield, CheckCircle, Loader2, Ticket, MapPin, Calendar, AlertTriangle, QrCode } from 'lucide-react';
+import { X, Shield, CheckCircle, Loader2, Ticket, MapPin, Calendar, AlertTriangle, QrCode, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
 import { useI18n } from '@/lib/I18nContext';
-import { getDefaultMethod } from '@/lib/paymentPrefs';
+import { PAYMENT_METHODS, getEnabledMethods, getDefaultMethod } from '@/lib/paymentPrefs';
 
 // Platform service fee (kept explicit for price transparency — pain point #4).
-// 0 for now; surface it so the user always sees the full breakdown before paying.
 const SERVICE_FEE = 0;
+
+const BANKS = [
+  { id: 'scb', label: 'SCB' },
+  { id: 'kbank', label: 'KBank' },
+  { id: 'bbl', label: 'BBL' },
+  { id: 'krungthai', label: 'Krungthai' },
+];
 
 function uuid() {
   try { return crypto.randomUUID(); } catch { return 'idem-' + Math.random().toString(36).slice(2) + Date.now(); }
@@ -16,9 +22,16 @@ function uuid() {
 
 export default function PaymentConfirmModal({ open, onClose, event }) {
   const { t } = useI18n();
-  const [step, setStep] = useState('confirm'); // confirm | qr | processing | success | error
-  // Default to the user's preferred method from Settings (promptpay vs card).
-  const [selectedCard, setSelectedCard] = useState(() => (getDefaultMethod() === 'promptpay' ? 'promptpay' : 'visa'));
+  const [step, setStep] = useState('confirm'); // confirm | qr | connect | processing | success | error
+
+  // Methods come from the user's Settings (Settings → payment methods).
+  const enabledIds = getEnabledMethods();
+  const methods = PAYMENT_METHODS.filter(m => enabledIds.includes(m.id));
+  const [selectedMethod, setSelectedMethod] = useState(() => {
+    const def = getDefaultMethod();
+    return enabledIds.includes(def) ? def : (enabledIds[0] || 'promptpay');
+  });
+  const [selectedBank, setSelectedBank] = useState('scb');
   const [payment, setPayment] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
   const idemRef = useRef(null);
@@ -27,24 +40,24 @@ export default function PaymentConfirmModal({ open, onClose, event }) {
   const ticketPrice = event?.price || 0;
   const total = ticketPrice + SERVICE_FEE;
 
-  const cards = [
-    { id: 'promptpay', label: 'PromptPay', icon: '📱', method: 'promptpay' },
-    { id: 'visa', label: 'Visa / Mastercard', icon: '💳', method: 'card' },
-  ];
+  const methodLabel = (m, bank) => {
+    const base = PAYMENT_METHODS.find(x => x.id === m)?.label || m;
+    if (m === 'mobilebanking' && bank) return `${base} · ${BANKS.find(b => b.id === bank)?.label || bank}`;
+    return base;
+  };
 
   const reset = () => {
     if (pollRef.current) { clearTimeout(pollRef.current); pollRef.current = null; }
     idemRef.current = null;
-    setPayment(null);
-    setErrorMsg('');
-    setStep('confirm');
+    setPayment(null); setErrorMsg(''); setStep('confirm');
   };
-
   const close = () => { reset(); onClose?.(); };
-
   const fail = (msg) => { setErrorMsg(msg || 'เกิดข้อผิดพลาด'); setStep('error'); };
 
-  // Poll the real status endpoint until paid / failed.
+  // changing the method/bank starts a fresh attempt (new idempotency key)
+  const chooseMethod = (id) => { setSelectedMethod(id); idemRef.current = null; };
+  const chooseBank = (id) => { setSelectedBank(id); idemRef.current = null; };
+
   const poll = (id, tries = 0) => {
     pollRef.current = setTimeout(async () => {
       try {
@@ -61,7 +74,6 @@ export default function PaymentConfirmModal({ open, onClose, event }) {
     }, 1500);
   };
 
-  // Once paid → create the booking + notification (client-visible "My Bookings").
   const onPaid = async (p) => {
     if (event) {
       await base44.entities.Booking.create({
@@ -74,34 +86,28 @@ export default function PaymentConfirmModal({ open, onClose, event }) {
         total_price: total,
         status: 'confirmed',
         ticket_code: p.ticketCode || ('TKT-' + Math.random().toString(36).substring(2, 8).toUpperCase()),
-        payment_method: p.method,
+        payment_method: p.bank ? `${p.method}:${p.bank}` : p.method,
       }).catch(() => {});
-
       await base44.entities.Notification.create({
         title:   t('pay.success_title',   { en: '✅ Booked!', th: '✅ จองสำเร็จ!', ja: '✅ 予約完了!', zh: '✅ 预订成功!', ko: '✅ 예약 완료!' }),
         message: t('pay.success_message', { en: `Your ticket for ${event.title || 'Concert'} is confirmed`, th: `ตั๋ว ${event.title || 'Concert'} ได้รับการยืนยันแล้ว`, ja: `${event.title || 'Concert'} のチケットが確定しました`, zh: `${event.title || 'Concert'} 的门票已确认`, ko: `${event.title || 'Concert'} 티켓이 확정되었습니다` }),
-        type: 'booking_confirmed',
-        is_read: false,
-        priority: 'high',
+        type: 'booking_confirmed', is_read: false, priority: 'high',
       }).catch(() => {});
     }
-    setPayment(p);
-    setStep('success');
+    setPayment(p); setStep('success');
   };
 
   const handleConfirm = async () => {
-    const method = cards.find(c => c.id === selectedCard)?.method || 'card';
-    if (!idemRef.current) idemRef.current = uuid();   // reused on retry → no double charge
-    setStep('processing');
-    setErrorMsg('');
+    const method = selectedMethod;
+    const bank = method === 'mobilebanking' ? selectedBank : undefined;
+    if (!idemRef.current) idemRef.current = uuid();
+    setStep('processing'); setErrorMsg('');
     try {
       const r = await fetch('/api/payments/create', {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: total,
-          method,
-          idempotencyKey: idemRef.current,
+          amount: total, method, bank, idempotencyKey: idemRef.current,
           event: { title: event?.title, venue: event?.venue, date: event?.date, zone: event?.zone },
         }),
       });
@@ -110,27 +116,24 @@ export default function PaymentConfirmModal({ open, onClose, event }) {
       setPayment(p);
 
       if (p.status === 'paid') return onPaid(p);
-
-      // PromptPay → show QR, then wait for confirmation (demo = button; real = auto-poll)
-      if (p.method === 'promptpay' && p.qrImage) {
-        setStep('qr');
-        if (!p.demo) poll(p.id);
+      // Real provider: hand off to the bank app / 3DS page
+      if (p.authorizeUri) { window.location.href = p.authorizeUri; return; }
+      // PromptPay → QR
+      if (p.method === 'promptpay' && p.qrImage) { setStep('qr'); if (!p.demo) poll(p.id); return; }
+      // Card demo → confirm instantly
+      if (p.method === 'card') {
+        if (p.demo) { await fetch(`/api/payments/${p.id}/confirm`, { method: 'POST', credentials: 'include' }); poll(p.id); }
+        else fail('การชำระด้วยบัตรจริงกำลังพัฒนา (ใช้ PromptPay หรือโหมดสาธิตก่อน)');
         return;
       }
-
-      // Card: demo confirms instantly; real Stripe/Omise card needs client SDK (next phase)
-      if (p.demo) {
-        await fetch(`/api/payments/${p.id}/confirm`, { method: 'POST', credentials: 'include' });
-        poll(p.id);
-      } else {
-        fail('การชำระด้วยบัตรจริงกำลังพัฒนา (ใช้ PromptPay หรือโหมดสาธิตก่อน)');
-      }
+      // Mobile banking / TrueMoney (demo) → connect step
+      setStep('connect');
+      if (!p.demo) poll(p.id);
     } catch (e) {
       fail(e?.message);
     }
   };
 
-  // Demo: user taps "I've paid" → confirm through the real state machine, then poll.
   const demoMarkPaid = async () => {
     if (!payment) return;
     setStep('processing');
@@ -146,11 +149,11 @@ export default function PaymentConfirmModal({ open, onClose, event }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={close}
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={close}
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="relative glass neon-border rounded-3xl p-6 w-full max-w-md z-10"
+            className="relative bg-card text-card-foreground border border-primary/30 shadow-2xl rounded-3xl p-6 w-full max-w-md z-10 max-h-[90vh] overflow-y-auto"
           >
             <button onClick={close} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
               <X className="w-5 h-5" />
@@ -165,52 +168,69 @@ export default function PaymentConfirmModal({ open, onClose, event }) {
                 </div>
 
                 {event && (
-                  <div className="glass-light rounded-2xl p-4 space-y-2">
-                    <h3 className="font-semibold text-sm">{event.title}</h3>
+                  <div className="bg-secondary/60 border border-border/40 rounded-2xl p-4 space-y-2">
+                    <h3 className="font-semibold text-sm text-foreground">{event.title}</h3>
                     {event.venue && <p className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="w-3 h-3" />{event.venue}</p>}
                     {event.date && <p className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="w-3 h-3" />{event.date}</p>}
-                    {/* Transparent price breakdown (pain point #4) */}
-                    <div className="pt-2 mt-1 border-t border-border/30 space-y-1">
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>{t('booking.zone', { en: 'Zone', th: 'โซน', ja: 'ゾーン', zh: '区域', ko: '구역' })} {event.zone || 'General'} × 1</span>
-                        <span>฿{ticketPrice.toLocaleString()}</span>
+                    <div className="pt-2 mt-1 border-t border-border/40 space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">{t('booking.zone', { en: 'Zone', th: 'โซน', ja: 'ゾーン', zh: '区域', ko: '구역' })} {event.zone || 'General'} × 1</span>
+                        <span className="text-foreground font-medium">฿{ticketPrice.toLocaleString()}</span>
                       </div>
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>{t('pay.fee', { en: 'Service fee', th: 'ค่าบริการ', ja: '手数料', zh: '服务费', ko: '수수료' })}</span>
-                        <span>฿{SERVICE_FEE.toLocaleString()}</span>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">{t('pay.fee', { en: 'Service fee', th: 'ค่าบริการ', ja: '手数料', zh: '服务费', ko: '수수료' })}</span>
+                        <span className="text-foreground font-medium">฿{SERVICE_FEE.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between items-center pt-1 font-semibold">
-                        <span className="text-sm">{t('pay.total', { en: 'Total', th: 'ยอดรวม', ja: '合計', zh: '总计', ko: '합계' })}</span>
-                        <span className="text-primary">฿{total.toLocaleString()}</span>
+                        <span className="text-sm text-foreground">{t('pay.total', { en: 'Total', th: 'ยอดรวม', ja: '合計', zh: '总计', ko: '합계' })}</span>
+                        <span className="text-primary text-base">฿{total.toLocaleString()}</span>
                       </div>
                     </div>
                   </div>
                 )}
 
                 <div className="space-y-2">
-                  <p className="text-sm font-medium">{t('pay.select_method', { en: 'Choose payment method', th: 'เลือกวิธีชำระเงิน', ja: 'お支払い方法を選択', zh: '选择支付方式', ko: '결제 수단 선택' })}</p>
-                  {cards.map(card => (
-                    <button
-                      key={card.id}
-                      onClick={() => setSelectedCard(card.id)}
-                      className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${
-                        selectedCard === card.id ? 'border-primary bg-primary/10 text-primary' : 'border-border/50 text-muted-foreground hover:border-border'
-                      }`}
-                    >
-                      <span className="text-lg">{card.icon}</span>
-                      <span className="text-sm font-medium">{card.label}</span>
-                      {selectedCard === card.id && <CheckCircle className="w-4 h-4 ml-auto" />}
-                    </button>
-                  ))}
+                  <p className="text-sm font-medium text-foreground">{t('pay.select_method', { en: 'Choose payment method', th: 'เลือกวิธีชำระเงิน', ja: 'お支払い方法を選択', zh: '选择支付方式', ko: '결제 수단 선택' })}</p>
+                  {methods.map(m => {
+                    const active = selectedMethod === m.id;
+                    return (
+                      <div key={m.id}>
+                        <button
+                          onClick={() => chooseMethod(m.id)}
+                          className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${
+                            active ? 'border-primary bg-primary/10 text-primary' : 'border-border/60 text-foreground hover:border-primary/40'
+                          }`}
+                        >
+                          <m.icon className="w-5 h-5 flex-shrink-0" />
+                          <span className="text-sm font-medium text-left flex-1">{m.label}</span>
+                          {active && <CheckCircle className="w-4 h-4" />}
+                        </button>
+                        {m.id === 'mobilebanking' && active && (
+                          <div className="grid grid-cols-4 gap-2 mt-2">
+                            {BANKS.map(b => (
+                              <button
+                                key={b.id}
+                                onClick={() => chooseBank(b.id)}
+                                className={`py-2 rounded-lg border text-xs font-medium transition-all ${
+                                  selectedBank === b.id ? 'border-primary bg-primary/10 text-primary' : 'border-border/60 text-muted-foreground hover:border-primary/40'
+                                }`}
+                              >
+                                {b.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Shield className="w-4 h-4 text-green-400" />
+                  <Shield className="w-4 h-4 text-green-500 dark:text-green-400" />
                   <span>{t('pay.secure', { en: 'Payment is processed by the provider, not stored by us', th: 'ดำเนินการผ่านผู้ให้บริการชำระเงิน เราไม่เก็บข้อมูลบัตร', ja: '決済は決済事業者が処理します', zh: '由支付服务商处理,我们不存储卡信息', ko: '결제는 결제사에서 처리됩니다' })}</span>
                 </div>
 
                 <Button onClick={handleConfirm} className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 glow-primary font-semibold">
-                  <CreditCard className="w-4 h-4 mr-2" />
                   {t('pay.confirm', { en: 'Pay', th: 'ชำระเงิน', ja: '支払う', zh: '付款', ko: '결제' })} ฿{total.toLocaleString()}
                 </Button>
               </div>
@@ -219,9 +239,9 @@ export default function PaymentConfirmModal({ open, onClose, event }) {
             {/* ── QR (PromptPay) ── */}
             {step === 'qr' && payment && (
               <div className="text-center py-4 space-y-4">
-                <h3 className="font-syne font-bold text-lg flex items-center justify-center gap-2"><QrCode className="w-5 h-5 text-primary" />PromptPay</h3>
+                <h3 className="font-syne font-bold text-lg flex items-center justify-center gap-2 text-foreground"><QrCode className="w-5 h-5 text-primary" />PromptPay</h3>
                 {isDemo && (
-                  <div className="glass-light rounded-xl px-3 py-2 text-xs text-amber-400 border border-amber-500/30 flex items-center gap-2">
+                  <div className="bg-amber-500/15 rounded-xl px-3 py-2 text-xs text-amber-700 dark:text-amber-300 border border-amber-500/40 flex items-center gap-2">
                     <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
                     {t('pay.demo_note', { en: 'Demo mode — no real charge. Tap "I’ve paid" to simulate.', th: 'โหมดสาธิต — ไม่มีการตัดเงินจริง กด “ชำระแล้ว (จำลอง)” เพื่อจำลอง', ja: 'デモ — 実際の請求なし', zh: '演示模式 — 不会真实扣款', ko: '데모 — 실제 결제 없음' })}
                   </div>
@@ -236,14 +256,40 @@ export default function PaymentConfirmModal({ open, onClose, event }) {
               </div>
             )}
 
+            {/* ── Connect (Mobile Banking / TrueMoney) ── */}
+            {step === 'connect' && payment && (
+              <div className="text-center py-4 space-y-4">
+                <div className="w-14 h-14 rounded-2xl bg-primary/15 flex items-center justify-center mx-auto">
+                  <Building2 className="w-7 h-7 text-primary" />
+                </div>
+                <h3 className="font-syne font-bold text-lg text-foreground">
+                  {t('pay.connecting', { en: 'Connect to', th: 'เชื่อมต่อกับ', ja: '接続', zh: '连接', ko: '연결' })} {methodLabel(payment.method, payment.bank)}
+                </h3>
+                {isDemo && (
+                  <div className="bg-amber-500/15 rounded-xl px-3 py-2 text-xs text-amber-700 dark:text-amber-300 border border-amber-500/40 flex items-center gap-2 text-left">
+                    <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                    {t('pay.connect_demo', { en: 'Demo — no real charge. Tap "I’ve paid" to simulate the bank app.', th: 'โหมดสาธิต — ไม่ตัดเงินจริง กด “ชำระแล้ว (จำลอง)” เพื่อจำลองการเปิดแอปธนาคาร', ja: 'デモ — 実際の請求なし', zh: '演示 — 不会真实扣款', ko: '데모 — 실제 결제 없음' })}
+                  </div>
+                )}
+                <p className="text-sm text-muted-foreground">
+                  {t('pay.connect_desc', { en: 'You’ll be sent to your banking app to authorize ฿' + total.toLocaleString(), th: 'ระบบจะพาไปยังแอปธนาคารเพื่อยืนยันการชำระ ฿' + total.toLocaleString(), ja: '銀行アプリで承認します', zh: '将跳转到银行 App 授权', ko: '은행 앱에서 승인합니다' })}
+                </p>
+                {isDemo ? (
+                  <Button onClick={demoMarkPaid} className="w-full bg-gradient-to-r from-primary to-accent">{t('pay.demo_paid', { en: 'I’ve paid (simulate)', th: 'ชำระแล้ว (จำลอง)', ja: '支払い済み(デモ)', zh: '已支付(模拟)', ko: '결제함 (데모)' })}</Button>
+                ) : (
+                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" />{t('pay.waiting', { en: 'Waiting for payment…', th: 'รอการชำระเงิน…', ja: '支払いを待っています…', zh: '等待付款…', ko: '결제 대기 중…' })}</div>
+                )}
+              </div>
+            )}
+
             {/* ── Processing ── */}
             {step === 'processing' && (
               <div className="text-center py-8 space-y-4">
-                <div className="w-16 h-16 rounded-2xl bg-primary/20 flex items-center justify-center mx-auto">
+                <div className="w-16 h-16 rounded-2xl bg-primary/15 flex items-center justify-center mx-auto">
                   <Loader2 className="w-8 h-8 text-primary animate-spin" />
                 </div>
                 <div>
-                  <h3 className="font-syne font-bold text-lg">{t('pay.processing', { en: 'Processing…', th: 'กำลังดำเนินการ...', ja: '処理中…', zh: '处理中…', ko: '처리 중…' })}</h3>
+                  <h3 className="font-syne font-bold text-lg text-foreground">{t('pay.processing', { en: 'Processing…', th: 'กำลังดำเนินการ...', ja: '処理中…', zh: '处理中…', ko: '처리 중…' })}</h3>
                   <p className="text-sm text-muted-foreground mt-1">{t('pay.processing_desc2', { en: 'Confirming your payment with the provider', th: 'กำลังยืนยันการชำระเงินกับผู้ให้บริการ', ja: '決済事業者と確認中', zh: '正在与支付服务商确认', ko: '결제사와 확인 중' })}</p>
                 </div>
               </div>
@@ -253,14 +299,14 @@ export default function PaymentConfirmModal({ open, onClose, event }) {
             {step === 'success' && (
               <div className="text-center py-8 space-y-4">
                 <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', damping: 15 }} className="w-20 h-20 rounded-2xl bg-green-500/20 flex items-center justify-center mx-auto">
-                  <CheckCircle className="w-10 h-10 text-green-400" />
+                  <CheckCircle className="w-10 h-10 text-green-500 dark:text-green-400" />
                 </motion.div>
                 <div>
-                  <h3 className="font-syne font-bold text-xl text-green-400">{t('pay.done_title', { en: 'Booked!', th: 'จองสำเร็จ!', ja: '予約完了!', zh: '预订成功!', ko: '예약 완료!' })}</h3>
+                  <h3 className="font-syne font-bold text-xl text-green-600 dark:text-green-400">{t('pay.done_title', { en: 'Booked!', th: 'จองสำเร็จ!', ja: '予約完了!', zh: '预订成功!', ko: '예약 완료!' })}</h3>
                   <p className="text-sm text-muted-foreground mt-1">{t('pay.done_desc', { en: 'Your ticket is confirmed', th: 'ตั๋วของคุณได้รับการยืนยันแล้ว', ja: 'チケットが確定しました', zh: '您的门票已确认', ko: '티켓이 확정되었습니다' })}</p>
                 </div>
-                <div className="glass-light rounded-2xl p-4 text-sm text-left space-y-2">
-                  <div className="flex items-center gap-2">
+                <div className="bg-secondary/60 border border-border/40 rounded-2xl p-4 text-sm text-left space-y-2">
+                  <div className="flex items-center gap-2 text-foreground">
                     <Ticket className="w-4 h-4 text-primary" />
                     <span className="font-mono">{payment?.ticketCode || '—'}</span>
                   </div>

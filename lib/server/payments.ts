@@ -15,7 +15,7 @@
  */
 import { randomUUID } from 'crypto';
 
-export type PayMethod = 'promptpay' | 'card';
+export type PayMethod = 'promptpay' | 'card' | 'mobilebanking' | 'truemoney';
 export type PayProvider = 'omise' | 'stripe' | 'demo';
 export type PayStatus = 'pending' | 'paid' | 'failed' | 'expired';
 
@@ -25,12 +25,13 @@ export type Payment = {
   amount: number;            // THB (baht), integer
   currency: 'THB';
   method: PayMethod;
+  bank: string | null;       // for mobilebanking: scb | kbank | bbl | krungthai
   provider: PayProvider;
   providerRef: string | null;
   status: PayStatus;
   idempotencyKey: string;
   qrImage: string | null;        // PromptPay QR (data-URI in demo, download_uri from Omise)
-  authorizeUri: string | null;   // 3DS / redirect URL when a provider needs one
+  authorizeUri: string | null;   // bank-app / redirect URL (mobile banking, TrueMoney, 3DS)
   clientSecret: string | null;   // Stripe PaymentIntent client_secret (card)
   ticketCode: string | null;     // issued once paid
   event: { title?: string; venue?: string; date?: string; zone?: string } | null;
@@ -50,10 +51,9 @@ function findByProviderRef(ref: string | null | undefined): Payment | null {
 export function pickProvider(method: PayMethod): PayProvider {
   const hasOmise = !!process.env.OMISE_SECRET_KEY;
   const hasStripe = !!process.env.STRIPE_SECRET_KEY;
-  if (method === 'promptpay') return hasOmise ? 'omise' : 'demo';
-  if (hasOmise) return 'omise';
-  if (hasStripe) return 'stripe';
-  return 'demo';
+  // Card → Stripe (token flow); PromptPay / Mobile Banking / TrueMoney → Omise sources.
+  if (method === 'card') return hasStripe ? 'stripe' : 'demo';
+  return hasOmise ? 'omise' : 'demo';
 }
 
 export function getPayment(id: string): Payment | null {
@@ -67,6 +67,7 @@ export function toPublic(p: Payment) {
     amount: p.amount,
     currency: p.currency,
     method: p.method,
+    bank: p.bank,
     provider: p.provider,
     status: p.status,
     demo: p.provider === 'demo',
@@ -84,6 +85,7 @@ export async function createPayment(input: {
   amount: number;
   method: PayMethod;
   idempotencyKey: string;
+  bank?: string | null;
   event?: Payment['event'];
 }): Promise<Payment> {
   const existingId = byIdem.get(input.idempotencyKey);
@@ -100,6 +102,7 @@ export async function createPayment(input: {
     amount: Math.max(0, Math.round(input.amount || 0)),
     currency: 'THB',
     method: input.method,
+    bank: input.bank || null,
     provider,
     providerRef: null,
     status: 'pending',
@@ -198,13 +201,21 @@ async function createOmiseCharge(p: Payment): Promise<void> {
   const body = new URLSearchParams();
   body.set('amount', String(p.amount * 100));   // Omise uses satang
   body.set('currency', 'thb');
-  if (p.method === 'promptpay') {
-    body.set('source[type]', 'promptpay');
-  } else {
+  if (p.method === 'card') {
     // Card requires an Omise.js token created on the client (PCI scope).
-    // Not wired in this foundation — fall back so we never pretend to charge.
     throw new Error('card via Omise needs a client token (coming soon)');
   }
+  const BANK_CODE: Record<string, string> = { scb: 'scb', kbank: 'kbank', bbl: 'bbl', krungthai: 'ktb' };
+  const SOURCE: Record<string, string> = {
+    promptpay:     'promptpay',
+    mobilebanking: 'mobile_banking_' + (BANK_CODE[p.bank || 'scb'] || 'scb'),
+    truemoney:     'truemoney',
+  };
+  const srcType = SOURCE[p.method];
+  if (!srcType) throw new Error('unsupported method: ' + p.method);
+  body.set('source[type]', srcType);
+  // bank-app / redirect flows come back here after the user authorizes
+  body.set('return_uri', (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000') + '/bookings');
   const r = await fetch('https://api.omise.co/charges', {
     method: 'POST',
     headers: { Authorization: auth, 'Content-Type': 'application/x-www-form-urlencoded' },

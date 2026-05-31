@@ -17,7 +17,9 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}));
   const amount = Number(body.amount) || 0;
-  const method: PayMethod = body.method === 'promptpay' ? 'promptpay' : 'card';
+  const ALLOWED: PayMethod[] = ['promptpay', 'card', 'mobilebanking', 'truemoney'];
+  const method: PayMethod = ALLOWED.includes(body.method) ? body.method : 'promptpay';
+  const bank = typeof body.bank === 'string' ? body.bank : null;
   const idempotencyKey = String(body.idempotencyKey || '') || randomKey();
 
   if (amount <= 0) return NextResponse.json({ error: 'invalid amount' }, { status: 400 });
@@ -26,6 +28,7 @@ export async function POST(req: NextRequest) {
     userId: g.user.id,
     amount,
     method,
+    bank,
     idempotencyKey,
     event: body.event || null,
   });
