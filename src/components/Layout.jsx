@@ -306,10 +306,7 @@ export default function Layout() {
                       }`}
                     >
                       <item.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-primary' : ''}`} />
-                      <div className="flex-1">
-                        <div className="text-sm font-medium">{item.label}</div>
-                        <div className="text-xs opacity-60">{item.labelTh}</div>
-                      </div>
+                      <NavLabel item={item} t={t} lang={lang} />
                       {item.path === '/bookings' && unreadCount > 0 && (
                         <Badge className="bg-accent/20 text-accent border-accent/30 text-xs px-1.5">{unreadCount}</Badge>
                       )}
