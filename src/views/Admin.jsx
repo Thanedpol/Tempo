@@ -440,7 +440,9 @@ export default function Admin() {
       const r = await fetch('/api/admin/settings', {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keys: { [settings.ai.provider]: apiKeyInput.trim() } }),
+        // Persist the selected provider/model TOO, so saving the key doesn't snap
+        // the dropdown back to the server's old provider.
+        body: JSON.stringify({ ai: settings.ai, keys: { [settings.ai.provider]: apiKeyInput.trim() } }),
       });
       if (r.ok) { setSettings(await r.json()); setApiKeyInput(''); toast.success('บันทึก API Key แล้ว'); }
       else toast.error('บันทึก API Key ล้มเหลว');
