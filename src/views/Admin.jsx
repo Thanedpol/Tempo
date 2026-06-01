@@ -21,25 +21,59 @@ import { toast } from 'sonner';
 
 // ─── AI Provider options (backend-driven, single source of truth) ──
 const PROVIDERS = [
-  { value: 'openrouter', label: 'OpenRouter',     hint: 'Multi-model gateway · Llama / GPT / Claude / Gemini' },
-  { value: 'openai',     label: 'OpenAI',         hint: 'GPT-4o / GPT-4o-mini / o1' },
-  { value: 'anthropic',  label: 'Anthropic',      hint: 'Claude Opus / Sonnet / Haiku' },
-  { value: 'gemini',     label: 'Google Gemini',  hint: 'gemini-2.0-flash / 1.5-pro' },
-  { value: 'ollama',     label: 'Ollama (local)', hint: 'Self-hosted · llama3.2 / qwen2.5' },
+  { value: 'openrouter', label: 'OpenRouter',     hint: 'เกตเวย์รวม 300+ โมเดล · Llama / GPT / Claude / Gemini / DeepSeek' },
+  { value: 'openai',     label: 'OpenAI',         hint: 'GPT-4o / GPT-4.1 / o1 / o3-mini' },
+  { value: 'anthropic',  label: 'Anthropic',      hint: 'Claude 3.7 / 3.5 Sonnet · Haiku · Opus' },
+  { value: 'gemini',     label: 'Google Gemini',  hint: 'Gemini 2.5 / 2.0 Flash · 1.5 Pro' },
+  { value: 'ollama',     label: 'Ollama (local)', hint: 'รันบนเครื่อง · llama3.3 / qwen2.5 / deepseek-r1' },
 ];
 
+// Curated suggestions per provider. The model field is FREE TEXT — any model id
+// can be typed/pasted (incl. brand-new releases). "*-latest" aliases always point
+// to the newest version, so they keep working without code changes.
 const POPULAR_MODELS = {
   openrouter: [
     'google/gemini-2.0-flash-exp:free',
     'meta-llama/llama-3.3-70b-instruct:free',
-    'anthropic/claude-3.5-sonnet',
-    'openai/gpt-4o-mini',
+    'deepseek/deepseek-r1:free',
     'qwen/qwen-2.5-72b-instruct:free',
+    'anthropic/claude-3.7-sonnet',
+    'anthropic/claude-3.5-sonnet',
+    'anthropic/claude-3.5-haiku',
+    'openai/gpt-4o',
+    'openai/gpt-4o-mini',
+    'openai/o1',
+    'google/gemini-2.0-flash-001',
+    'google/gemini-pro-1.5',
+    'deepseek/deepseek-chat',
+    'mistralai/mistral-large',
+    'x-ai/grok-2',
   ],
-  openai:    ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo', 'o1-mini'],
-  anthropic: ['claude-3-5-haiku-latest', 'claude-3-5-sonnet-latest', 'claude-3-opus-latest'],
-  gemini:    ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'],
-  ollama:    ['llama3.2', 'llama3.1', 'qwen2.5', 'mistral'],
+  openai: [
+    'gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano',
+    'o1', 'o1-mini', 'o3-mini', 'gpt-4-turbo', 'gpt-3.5-turbo',
+  ],
+  anthropic: [
+    'claude-3-7-sonnet-latest', 'claude-3-5-sonnet-latest', 'claude-3-5-haiku-latest',
+    'claude-3-opus-latest', 'claude-3-5-sonnet-20241022', 'claude-3-haiku-20240307',
+  ],
+  gemini: [
+    'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite',
+    'gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-1.5-flash-8b',
+  ],
+  ollama: [
+    'llama3.3', 'llama3.2', 'llama3.1', 'qwen2.5', 'qwen2.5-coder',
+    'deepseek-r1', 'mistral', 'gemma2', 'phi4',
+  ],
+};
+
+// Where to find the full, always-current model list for each provider.
+const MODEL_DOCS = {
+  openrouter: 'https://openrouter.ai/models',
+  openai:     'https://platform.openai.com/docs/models',
+  anthropic:  'https://docs.anthropic.com/en/docs/about-claude/models',
+  gemini:     'https://ai.google.dev/gemini-api/docs/models',
+  ollama:     'https://ollama.com/library',
 };
 
 // ─── API Key Groups (localStorage — demo only) ─────────────────────
@@ -1054,10 +1088,16 @@ export default function Admin() {
                   <div>
                     <Label>โมเดล</Label>
                     <Input value={settings.ai.model} onChange={e => patch('ai', { model: e.target.value })}
-                      className="bg-secondary/30 mt-1.5 font-mono text-xs" list="model-suggestions" />
+                      className="bg-secondary/30 mt-1.5 font-mono text-xs" list="model-suggestions" placeholder="พิมพ์/วางชื่อโมเดล" />
                     <datalist id="model-suggestions">
                       {(POPULAR_MODELS[settings.ai.provider] || []).map(m => <option key={m} value={m} />)}
                     </datalist>
+                    <p className="text-[11px] text-muted-foreground mt-1.5">
+                      พิมพ์ชื่อโมเดลใดก็ได้ (รวมรุ่นใหม่ที่เพิ่งออก) · รายการในช่องเป็นตัวอย่าง
+                      {MODEL_DOCS[settings.ai.provider] && (
+                        <> · <a href={MODEL_DOCS[settings.ai.provider]} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">ดูรายชื่อทั้งหมด →</a></>
+                      )}
+                    </p>
                   </div>
                 </div>
 
