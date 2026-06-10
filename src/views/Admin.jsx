@@ -25,6 +25,7 @@ const PROVIDERS = [
   { value: 'openai',     label: 'OpenAI',         hint: 'GPT-4o / GPT-4.1 / o1 / o3-mini' },
   { value: 'anthropic',  label: 'Anthropic',      hint: 'Claude 3.7 / 3.5 Sonnet · Haiku · Opus' },
   { value: 'gemini',     label: 'Google Gemini',  hint: 'Gemini 2.5 / 2.0 Flash · 1.5 Pro' },
+  { value: 'poe',        label: 'Poe (by Quora)', hint: 'รวมหลายโมเดลในที่เดียว · GPT / Claude / Gemini (poe.com)' },
   { value: 'ollama',     label: 'Ollama (local)', hint: 'รันบนเครื่อง · llama3.3 / qwen2.5 / deepseek-r1' },
 ];
 
@@ -61,6 +62,10 @@ const POPULAR_MODELS = {
     'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite',
     'gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-1.5-flash-8b',
   ],
+  poe: [
+    'GPT-4o', 'GPT-4o-mini', 'Claude-3.7-Sonnet', 'Claude-3.5-Sonnet', 'Claude-3.5-Haiku',
+    'Gemini-2.0-Flash', 'Llama-3.1-405B', 'o3-mini', 'Grok-2',
+  ],
   ollama: [
     'llama3.3', 'llama3.2', 'llama3.1', 'qwen2.5', 'qwen2.5-coder',
     'deepseek-r1', 'mistral', 'gemma2', 'phi4',
@@ -73,6 +78,7 @@ const MODEL_DOCS = {
   openai:     'https://platform.openai.com/docs/models',
   anthropic:  'https://docs.anthropic.com/en/docs/about-claude/models',
   gemini:     'https://ai.google.dev/gemini-api/docs/models',
+  poe:        'https://poe.com',
   ollama:     'https://ollama.com/library',
 };
 
@@ -1141,7 +1147,7 @@ export default function Admin() {
 
                 {/* Editable API key for the selected provider — saved to backend runtime */}
                 {(() => {
-                  const ENV_NAME = { openrouter: 'OPENROUTER_API_KEY', openai: 'OPENAI_API_KEY', anthropic: 'ANTHROPIC_API_KEY', gemini: 'GEMINI_API_KEY' };
+                  const ENV_NAME = { openrouter: 'OPENROUTER_API_KEY', openai: 'OPENAI_API_KEY', anthropic: 'ANTHROPIC_API_KEY', gemini: 'GEMINI_API_KEY', poe: 'POE_API_KEY' };
                   const envName = ENV_NAME[settings.ai.provider];
                   if (!envName) return null; // ollama needs no key
                   const localKey = (typeof window !== 'undefined' && localStorage.getItem('ai_key_' + settings.ai.provider)) || '';

@@ -28,6 +28,7 @@ function defaultModel(provider: string): string {
     case 'openai':     return process.env.OPENAI_DEFAULT_MODEL || 'gpt-4o-mini';
     case 'anthropic':  return 'claude-3-5-sonnet-latest';
     case 'gemini':     return process.env.GEMINI_DEFAULT_MODEL || 'gemini-2.0-flash';
+    case 'poe':        return process.env.POE_DEFAULT_MODEL || 'GPT-4o-mini';
     case 'ollama':     return 'llama3.2';
     default:           return 'google/gemini-2.0-flash-exp:free';
   }
@@ -83,18 +84,21 @@ export async function extractWithLLM<T = any>(opts: ExtractOptions): Promise<T |
     return parseMaybeJson<T>(data?.choices?.[0]?.message?.content ?? '', expectJson);
   }
 
-  if (provider === 'openai') {
-    const r = await fetch('https://api.openai.com/v1/chat/completions', {
+  // OpenAI + Poe share the OpenAI-compatible Chat Completions shape.
+  if (provider === 'openai' || provider === 'poe') {
+    const base = provider === 'poe' ? 'https://api.poe.com/v1' : 'https://api.openai.com/v1';
+    const r = await fetch(`${base}/chat/completions`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model,
         messages: [{ role: 'user', content: opts.prompt }],
         temperature, max_tokens: maxTokens,
-        ...(expectJson ? { response_format: { type: 'json_object' } } : {}),
+        // Poe bots may not accept response_format — rely on prompt + parseMaybeJson there.
+        ...(expectJson && provider === 'openai' ? { response_format: { type: 'json_object' } } : {}),
       }),
     });
-    if (!r.ok) throw new Error(`OpenAI ${r.status}: ${await r.text()}`);
+    if (!r.ok) throw new Error(`${provider === 'poe' ? 'Poe' : 'OpenAI'} ${r.status}: ${await r.text()}`);
     const data = await r.json();
     return parseMaybeJson<T>(data?.choices?.[0]?.message?.content ?? '', expectJson);
   }

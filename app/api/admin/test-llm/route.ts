@@ -50,6 +50,17 @@ export async function POST(req: NextRequest) {
       if (!r.ok) throw new Error(`OpenAI ${r.status}: ${await r.text()}`);
       const data = await r.json();
       text = data?.choices?.[0]?.message?.content ?? '';
+    } else if (provider === 'poe') {
+      const key = keyFor('poe');
+      if (!key) throw new Error('Poe API key not set (paste it in the AI tab or set POE_API_KEY)');
+      const r = await fetch('https://api.poe.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, messages: [{ role: 'user', content: 'Respond with the single word: pong' }], max_tokens: 16 }),
+      });
+      if (!r.ok) throw new Error(`Poe ${r.status}: ${await r.text()}`);
+      const data = await r.json();
+      text = data?.choices?.[0]?.message?.content ?? '';
     } else if (provider === 'gemini') {
       const key = keyFor('gemini');
       if (!key) throw new Error('Gemini API key not set (paste it in the AI tab or set GEMINI_API_KEY)');

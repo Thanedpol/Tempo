@@ -7,7 +7,7 @@
  * without touching the codebase or redeploying.
  */
 
-export type LlmProvider = 'openrouter' | 'openai' | 'gemini' | 'ollama' | 'anthropic';
+export type LlmProvider = 'openrouter' | 'openai' | 'gemini' | 'ollama' | 'anthropic' | 'poe';
 
 export type CrawlerSource =
   | 'ticketmelon'
@@ -84,6 +84,7 @@ const ENV_BY_PROVIDER: Record<string, string> = {
   openai:     'OPENAI_API_KEY',
   anthropic:  'ANTHROPIC_API_KEY',
   gemini:     'GEMINI_API_KEY',
+  poe:        'POE_API_KEY',
 };
 
 export function setRuntimeKey(provider: string, value: string) {

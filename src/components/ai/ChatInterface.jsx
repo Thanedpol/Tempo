@@ -155,7 +155,7 @@ export default function ChatInterface({ sessionId, onSessionUpdate }) {
        // AI config mirrored from Admin → AI tab (carried per-request because backend
        // runtime state isn't shared across serverless instances).
        const keys = {};
-       ['openrouter', 'openai', 'anthropic', 'gemini'].forEach(p => {
+       ['openrouter', 'openai', 'anthropic', 'gemini', 'poe'].forEach(p => {
          const k = localStorage.getItem('ai_key_' + p);
          if (k) keys[p] = k;
        });
