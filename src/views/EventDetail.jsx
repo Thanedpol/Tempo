@@ -138,6 +138,7 @@ export default function EventDetail() {
           date: event.date,
           price: bookZone?.price || minPrice,
           zone: bookZone?.name || 'General',
+          zones: event.zones,
         } : null}
       />
     </div>

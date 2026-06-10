@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Shield, CheckCircle, Loader2, Ticket, MapPin, Calendar, AlertTriangle, QrCode, Building2 } from 'lucide-react';
+import { X, Shield, CheckCircle, Loader2, Ticket, MapPin, Calendar, AlertTriangle, QrCode, Building2, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
 import { useI18n } from '@/lib/I18nContext';
@@ -20,9 +20,23 @@ function uuid() {
   try { return crypto.randomUUID(); } catch { return 'idem-' + Math.random().toString(36).slice(2) + Date.now(); }
 }
 
+// Deterministic mock seat map (demo) — same event+zone always yields the same layout.
+function hashStr(s) { let h = 7; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h; }
+function seatLayout(seed, count = 40, cols = 8) {
+  let rng = seed || 1;
+  const next = () => (rng = (rng * 1103515245 + 12345) & 0x7fffffff);
+  const rowLetters = 'ABCDEFGHJKLMNPQR';
+  const rows = Math.ceil(count / cols);
+  const out = [];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    out.push({ id: rowLetters[r] + (c + 1), taken: next() % 100 < 35 });
+  }
+  return out;
+}
+
 export default function PaymentConfirmModal({ open, onClose, event }) {
   const { t } = useI18n();
-  const [step, setStep] = useState('confirm'); // confirm | qr | connect | processing | success | error
+  const [step, setStep] = useState('seats'); // seats | confirm | qr | connect | processing | success | error
 
   // Methods come from the user's Settings (Settings → payment methods).
   const enabledIds = getEnabledMethods();
@@ -37,8 +51,27 @@ export default function PaymentConfirmModal({ open, onClose, event }) {
   const idemRef = useRef(null);
   const pollRef = useRef(null);
 
-  const ticketPrice = event?.price || 0;
+  // ── Zones + seat selection ──
+  const zones = (event?.zones && event.zones.length)
+    ? event.zones
+    : [{ name: event?.zone || 'General', price: event?.price || 0 }];
+  const [zoneName, setZoneName] = useState(() => event?.zone || zones[0]?.name);
+  const [seats, setSeats] = useState([]); // selected seat ids, e.g. ['A3','A4']
+  const zone = zones.find(z => z.name === zoneName) || zones[0];
+  const layout = useMemo(
+    () => seatLayout(hashStr((event?.title || '') + '|' + zoneName)),
+    [event?.title, zoneName],
+  );
+
+  const qty = Math.max(1, seats.length);
+  const ticketPrice = (zone?.price || 0) * qty;
   const total = ticketPrice + SERVICE_FEE;
+
+  const chooseZone = (name) => { setZoneName(name); setSeats([]); idemRef.current = null; };
+  const toggleSeat = (id) => {
+    setSeats(prev => prev.includes(id) ? prev.filter(s => s !== id) : (prev.length >= 6 ? prev : [...prev, id]));
+    idemRef.current = null;
+  };
 
   const methodLabel = (m, bank) => {
     const base = PAYMENT_METHODS.find(x => x.id === m)?.label || m;
@@ -49,7 +82,7 @@ export default function PaymentConfirmModal({ open, onClose, event }) {
   const reset = () => {
     if (pollRef.current) { clearTimeout(pollRef.current); pollRef.current = null; }
     idemRef.current = null;
-    setPayment(null); setErrorMsg(''); setStep('confirm');
+    setPayment(null); setErrorMsg(''); setSeats([]); setStep('seats');
   };
   const close = () => { reset(); onClose?.(); };
   const fail = (msg) => { setErrorMsg(msg || 'เกิดข้อผิดพลาด'); setStep('error'); };
@@ -81,12 +114,13 @@ export default function PaymentConfirmModal({ open, onClose, event }) {
         event_title: event.title || 'Concert Event',
         event_date: event.date || new Date().toISOString(),
         venue: event.venue || 'TBA',
-        zone: event.zone || 'General',
-        quantity: 1,
+        zone: zoneName,
+        quantity: qty,
         total_price: total,
         status: 'confirmed',
         ticket_code: p.ticketCode || ('TKT-' + Math.random().toString(36).substring(2, 8).toUpperCase()),
         payment_method: p.bank ? `${p.method}:${p.bank}` : p.method,
+        notes: seats.length ? `Seats: ${seats.join(', ')}` : undefined,
       }).catch(() => {});
       await base44.entities.Notification.create({
         title:   t('pay.success_title',   { en: '✅ Booked!', th: '✅ จองสำเร็จ!', ja: '✅ 予約完了!', zh: '✅ 预订成功!', ko: '✅ 예약 완료!' }),
@@ -108,7 +142,7 @@ export default function PaymentConfirmModal({ open, onClose, event }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: total, method, bank, idempotencyKey: idemRef.current,
-          event: { title: event?.title, venue: event?.venue, date: event?.date, zone: event?.zone },
+          event: { title: event?.title, venue: event?.venue, date: event?.date, zone: zoneName },
         }),
       });
       const p = await r.json();
@@ -159,12 +193,88 @@ export default function PaymentConfirmModal({ open, onClose, event }) {
               <X className="w-5 h-5" />
             </button>
 
+            {/* ── Seat selection ── */}
+            {step === 'seats' && (
+              <div className="space-y-4">
+                <div>
+                  <h2 className="font-syne text-xl font-bold gradient-text">{t('seat.title', { en: 'Choose your seats', th: 'เลือกที่นั่ง', ja: '座席を選択', zh: '选择座位', ko: '좌석 선택' })}</h2>
+                  {event?.title && <p className="text-sm text-muted-foreground mt-1 truncate">{event.title}</p>}
+                </div>
+
+                {/* Zone boxes */}
+                <div>
+                  <p className="text-sm font-medium text-foreground mb-2">{t('seat.zone', { en: 'Zone', th: 'โซน', ja: 'ゾーン', zh: '区域', ko: '구역' })}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {zones.map(z => {
+                      const avail = seatLayout(hashStr((event?.title || '') + '|' + z.name)).filter(s => !s.taken).length;
+                      const active = z.name === zoneName;
+                      return (
+                        <button key={z.name} onClick={() => chooseZone(z.name)}
+                          className={`text-left p-3 rounded-xl border transition-all ${active ? 'border-primary bg-primary/10' : 'border-border/60 hover:border-primary/40'}`}>
+                          <div className="text-sm font-medium text-foreground">{z.name}</div>
+                          <div className="text-xs text-gold font-semibold">฿{(z.price || 0).toLocaleString()}</div>
+                          <div className="text-[11px] text-muted-foreground mt-0.5">{t('seat.left', { en: `${avail} seats left`, th: `เหลือ ${avail} ที่นั่ง`, ja: `残り${avail}席`, zh: `剩 ${avail} 座`, ko: `${avail}석 남음` })}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Seat map */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium text-foreground">{t('seat.map', { en: 'Seat map', th: 'แผนผังที่นั่ง', ja: '座席表', zh: '座位图', ko: '좌석도' })} · {zoneName}</p>
+                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                      <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-secondary border border-border/60" />{t('seat.free', { en: 'free', th: 'ว่าง', ja: '空', zh: '空', ko: '빈' })}</span>
+                      <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-primary" />{t('seat.picked', { en: 'picked', th: 'เลือก', ja: '選択', zh: '已选', ko: '선택' })}</span>
+                      <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-muted/40" />{t('seat.taken', { en: 'taken', th: 'เต็ม', ja: '満', zh: '已售', ko: '매진' })}</span>
+                    </div>
+                  </div>
+                  <div className="bg-secondary/40 rounded-xl p-3">
+                    <div className="text-center text-[10px] text-muted-foreground mb-2 tracking-widest">🎤 {t('seat.stage', { en: 'STAGE', th: 'เวที', ja: 'ステージ', zh: '舞台', ko: '무대' })}</div>
+                    <div className="grid grid-cols-8 gap-1.5">
+                      {layout.map(s => {
+                        const selected = seats.includes(s.id);
+                        return (
+                          <button key={s.id} disabled={s.taken} onClick={() => toggleSeat(s.id)} title={s.id}
+                            className={`aspect-square rounded text-[9px] font-medium transition-colors ${
+                              s.taken ? 'bg-muted/30 text-muted-foreground/40 cursor-not-allowed'
+                                : selected ? 'bg-primary text-primary-foreground'
+                                  : 'bg-secondary border border-border/60 text-muted-foreground hover:border-primary/50'}`}>
+                            {s.id}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Summary + continue */}
+                <div className="flex items-center justify-between gap-3 pt-1">
+                  <div className="text-xs text-muted-foreground min-w-0">
+                    {seats.length
+                      ? <>{t('seat.selected', { en: 'Selected', th: 'เลือก', ja: '選択', zh: '已选', ko: '선택' })} {seats.length}: <span className="text-foreground">{seats.join(', ')}</span></>
+                      : t('seat.none', { en: 'No seat selected yet', th: 'ยังไม่ได้เลือกที่นั่ง', ja: '未選択', zh: '尚未选座', ko: '미선택' })}
+                    <div className="text-primary font-semibold text-sm">฿{total.toLocaleString()}</div>
+                  </div>
+                  <Button onClick={() => setStep('confirm')} disabled={!seats.length} className="bg-gradient-to-r from-primary to-accent flex-shrink-0">
+                    {t('seat.continue', { en: 'Continue', th: 'ดำเนินการ', ja: '次へ', zh: '继续', ko: '계속' })} →
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* ── Confirm ── */}
             {step === 'confirm' && (
               <div className="space-y-5">
-                <div>
-                  <h2 className="font-syne text-xl font-bold gradient-text">{t('pay.title', { en: 'Confirm payment', th: 'ยืนยันการชำระเงิน', ja: '支払いを確認', zh: '确认付款', ko: '결제 확인' })}</h2>
-                  <p className="text-sm text-muted-foreground mt-1">{t('pay.subtitle', { en: 'Review and confirm', th: 'ตรวจสอบและยืนยัน', ja: '内容を確認して確定', zh: '确认信息', ko: '확인 후 결제' })}</p>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setStep('seats')} className="text-muted-foreground hover:text-foreground" aria-label="Back to seats">
+                    <ArrowLeft className="w-4 h-4" />
+                  </button>
+                  <div>
+                    <h2 className="font-syne text-xl font-bold gradient-text">{t('pay.title', { en: 'Confirm payment', th: 'ยืนยันการชำระเงิน', ja: '支払いを確認', zh: '确认付款', ko: '결제 확인' })}</h2>
+                    <p className="text-sm text-muted-foreground mt-0.5">{t('pay.subtitle', { en: 'Review and confirm', th: 'ตรวจสอบและยืนยัน', ja: '内容を確認して確定', zh: '确认信息', ko: '확인 후 결제' })}</p>
+                  </div>
                 </div>
 
                 {event && (
@@ -174,9 +284,12 @@ export default function PaymentConfirmModal({ open, onClose, event }) {
                     {event.date && <p className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="w-3 h-3" />{event.date}</p>}
                     <div className="pt-2 mt-1 border-t border-border/40 space-y-1">
                       <div className="flex justify-between text-xs">
-                        <span className="text-muted-foreground">{t('booking.zone', { en: 'Zone', th: 'โซน', ja: 'ゾーン', zh: '区域', ko: '구역' })} {event.zone || 'General'} × 1</span>
+                        <span className="text-muted-foreground">{t('booking.zone', { en: 'Zone', th: 'โซน', ja: 'ゾーン', zh: '区域', ko: '구역' })} {zoneName} × {qty}</span>
                         <span className="text-foreground font-medium">฿{ticketPrice.toLocaleString()}</span>
                       </div>
+                      {seats.length > 0 && (
+                        <div className="text-[11px] text-muted-foreground">{t('seat.label', { en: 'Seats', th: 'ที่นั่ง', ja: '座席', zh: '座位', ko: '좌석' })}: {seats.join(', ')}</div>
+                      )}
                       <div className="flex justify-between text-xs">
                         <span className="text-muted-foreground">{t('pay.fee', { en: 'Service fee', th: 'ค่าบริการ', ja: '手数料', zh: '服务费', ko: '수수료' })}</span>
                         <span className="text-foreground font-medium">฿{SERVICE_FEE.toLocaleString()}</span>

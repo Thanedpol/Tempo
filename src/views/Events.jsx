@@ -229,6 +229,7 @@ export default function Events() {
           date: selectedEvent.date,
           price: selectedEvent.zones?.[0]?.price || 0,
           zone: selectedEvent.zones?.[0]?.name || 'General',
+          zones: selectedEvent.zones,
         } : null}
       />
     </div>
