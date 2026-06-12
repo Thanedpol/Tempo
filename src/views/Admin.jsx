@@ -447,7 +447,21 @@ export default function Admin() {
     (async () => {
       try {
         const r = await fetch('/api/admin/settings', { credentials: 'include' });
-        if (r.ok) setSettings(await r.json());
+        if (!r.ok) return;
+        const s = await r.json();
+        // Backend runtime settings reset on serverless cold starts / restarts, so
+        // overlay the user's last-saved AI config from localStorage — otherwise
+        // provider / model / system prompt appear to "disappear" after a refresh.
+        try {
+          if (s.ai) {
+            const lp = localStorage.getItem('ai_provider'); if (lp) s.ai.provider = lp;
+            const lm = localStorage.getItem('ai_model'); if (lm) s.ai.model = lm;
+            const lsys = localStorage.getItem('ai_system_prompt'); if (lsys !== null) s.ai.systemPrompt = lsys;
+            const lt = localStorage.getItem('ai_temperature'); if (lt && !isNaN(parseFloat(lt))) s.ai.temperature = parseFloat(lt);
+            const lmax = localStorage.getItem('ai_max_tokens'); if (lmax && !isNaN(parseInt(lmax, 10))) s.ai.maxTokens = parseInt(lmax, 10);
+          }
+        } catch { /* ignore */ }
+        setSettings(s);
       } catch { /* settings tab will show a loader */ }
     })();
   }, []);
@@ -462,8 +476,9 @@ export default function Admin() {
       localStorage.setItem('ai_model', settings.ai.model || '');
       localStorage.setItem('ai_system_prompt', settings.ai.systemPrompt || '');
       localStorage.setItem('ai_temperature', String(settings.ai.temperature ?? ''));
+      localStorage.setItem('ai_max_tokens', String(settings.ai.maxTokens ?? ''));
     } catch { /* ignore */ }
-  }, [settings?.ai?.provider, settings?.ai?.model, settings?.ai?.systemPrompt, settings?.ai?.temperature]);
+  }, [settings?.ai?.provider, settings?.ai?.model, settings?.ai?.systemPrompt, settings?.ai?.temperature, settings?.ai?.maxTokens]);
 
   // ── Backend settings handlers ──
   const patch = (section, values) => {
