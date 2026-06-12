@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { MapPin, Star, Wifi, Car, Coffee, Waves, Search } from 'lucide-react';
+import { MapPin, Star, Wifi, Car, Coffee, Waves, Search, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNavigate } from 'react-router-dom';
 import { useI18n } from '@/lib/I18nContext';
+import { base44 } from '@/api/base44Client';
+import HotelBookingModal from '@/components/bookings/HotelBookingModal';
 
 const MOCK_HOTELS = [
   {
@@ -43,7 +45,7 @@ const MOCK_HOTELS = [
   },
 ];
 
-function HotelCard({ hotel, onDetail, t }) {
+function HotelCard({ hotel, onDetail, onBook, t }) {
   const amenityIcons = {
     wifi:      { icon: Wifi,   label: 'Wi-Fi' },
     pool:      { icon: Waves,  label: t('hotel.amenity.pool',      { en: 'Pool',      th: 'สระว่ายน้ำ',  ja: 'プール',    zh: '泳池',     ko: '수영장' }) },
@@ -121,7 +123,8 @@ function HotelCard({ hotel, onDetail, t }) {
           </div>
           <Button
             size="sm"
-            onClick={(e) => { e.stopPropagation(); onDetail(hotel); }}
+            disabled={!hotel.available}
+            onClick={(e) => { e.stopPropagation(); onBook(hotel); }}
             className="text-xs bg-gradient-to-r from-neon-cyan/80 to-primary/80 hover:from-neon-cyan hover:to-primary text-background font-semibold"
           >
             {t('hotel.book', { en: 'Book hotel', th: 'จองโรงแรม', ja: '予約する', zh: '预订酒店', ko: '호텔 예약' })}
@@ -132,21 +135,61 @@ function HotelCard({ hotel, onDetail, t }) {
   );
 }
 
+// Map a hotel_bookings catalogue row → the card shape.
+function mapRow(r) {
+  return {
+    id: r.id,
+    name: r.hotel_name || 'Hotel',
+    image: r.hotel_image || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400',
+    price_per_night: r.price_per_night || 1500,
+    distance: r.distance_to_venue || '',
+    address: r.address || 'Bangkok',
+    source: r.source || 'Agoda',
+    source_url: r.source_url,
+    amenities: Array.isArray(r.amenities) ? r.amenities : [],
+    rating: r.rating || 4,
+    available: r.status !== 'sold_out',
+  };
+}
+
 export default function Hotels() {
   const navigate = useNavigate();
   const { t } = useI18n();
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('price');
+  const [hotels, setHotels] = useState(MOCK_HOTELS);
+  const [loading, setLoading] = useState(false);
+  const [bookingHotel, setBookingHotel] = useState(null);
 
-  const filtered = MOCK_HOTELS
+  const load = async () => {
+    setLoading(true);
+    try {
+      const rows = await base44.entities.HotelBooking.list('-created_date', 60);
+      const catalogue = (rows || []).filter(r => r.hotel_name).map(mapRow);
+      setHotels(catalogue.length ? catalogue : MOCK_HOTELS);   // fall back to samples when empty
+    } catch {
+      setHotels(MOCK_HOTELS);
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { load(); }, []);
+
+  const filtered = hotels
     .filter(h => !search || h.name.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => sortBy === 'price' ? a.price_per_night - b.price_per_night : b.rating - a.rating);
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div>
-        <h1 className="font-syne text-3xl font-bold gradient-text">{t('hotel.title', { en: 'Hotels Nearby', th: 'โรงแรมใกล้สถานที่', ja: '近くのホテル', zh: '附近酒店', ko: '근처 호텔' })}</h1>
-        <p className="text-muted-foreground mt-1">{t('hotel.subtitle', { en: 'Hotels near the venue, from Agoda & Booking.com', th: 'โรงแรมใกล้สถานที่จัดงาน จาก Agoda & Booking.com', ja: '会場近くのホテル — Agoda & Booking.com から', zh: '场馆附近的酒店,来自 Agoda & Booking.com', ko: 'Agoda & Booking.com에서 공연장 근처 호텔' })}</p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="font-syne text-3xl font-bold gradient-text">{t('hotel.title', { en: 'Hotels Nearby', th: 'โรงแรมใกล้สถานที่', ja: '近くのホテル', zh: '附近酒店', ko: '근처 호텔' })}</h1>
+          <p className="text-muted-foreground mt-1">{t('hotel.subtitle', { en: 'Hotels near the venue, from Agoda & Booking.com', th: 'โรงแรมใกล้สถานที่จัดงาน จาก Agoda & Booking.com', ja: '会場近くのホテル — Agoda & Booking.com から', zh: '场馆附近的酒店,来自 Agoda & Booking.com', ko: 'Agoda & Booking.com에서 공연장 근처 호텔' })}</p>
+        </div>
+        <Button size="sm" variant="outline" onClick={load} disabled={loading} className="border-neon-cyan/30 text-neon-cyan hover:bg-neon-cyan/10 flex-shrink-0">
+          <RefreshCw className={`w-4 h-4 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+          {t('hotel.refresh', { en: 'Update live', th: 'อัปเดตเรียลไทม์', ja: 'リアルタイム更新', zh: '实时更新', ko: '실시간 업데이트' })}
+        </Button>
       </div>
 
       <div className="glass-light rounded-2xl p-4 border border-border/30 flex flex-wrap gap-3">
@@ -170,9 +213,12 @@ export default function Hotels() {
             hotel={h}
             t={t}
             onDetail={(hotel) => navigate(`/hotels/${hotel.id}`, { state: { hotel } })}
+            onBook={(hotel) => setBookingHotel(hotel)}
           />
         ))}
       </div>
+
+      <HotelBookingModal open={!!bookingHotel} onClose={() => setBookingHotel(null)} hotel={bookingHotel} />
     </div>
   );
 }

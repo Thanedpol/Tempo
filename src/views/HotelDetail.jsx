@@ -1,15 +1,18 @@
+import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, MapPin, Star, Wifi, Car, Coffee, Waves } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useI18n } from '@/lib/I18nContext';
+import HotelBookingModal from '@/components/bookings/HotelBookingModal';
 
 export default function HotelDetail() {
   const { state } = useLocation();
   const navigate = useNavigate();
   const { t } = useI18n();
   const hotel = state?.hotel;
+  const [booking, setBooking] = useState(false);
 
   const amenityIcons = {
     wifi:      { icon: Wifi,   label: 'Wi-Fi' },
@@ -93,12 +96,14 @@ export default function HotelDetail() {
               <span className="text-3xl font-bold text-neon-cyan">฿{hotel.price_per_night.toLocaleString()}</span>
               <span className="text-sm text-muted-foreground">/{t('hotel.per_night', { en: 'night', th: 'คืน', ja: '泊', zh: '晚', ko: '박' })}</span>
             </div>
-            <Button disabled={!hotel.available} className="bg-gradient-to-r from-neon-cyan/80 to-primary/80 hover:from-neon-cyan hover:to-primary text-background font-semibold px-6">
+            <Button disabled={!hotel.available} onClick={() => setBooking(true)} className="bg-gradient-to-r from-neon-cyan/80 to-primary/80 hover:from-neon-cyan hover:to-primary text-background font-semibold px-6">
               {t('hotel.book', { en: 'Book hotel', th: 'จองโรงแรม', ja: '予約する', zh: '预订酒店', ko: '호텔 예약' })}
             </Button>
           </div>
         </div>
       </motion.div>
+
+      <HotelBookingModal open={booking} onClose={() => setBooking(false)} hotel={hotel} />
     </div>
   );
 }
