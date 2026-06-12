@@ -462,6 +462,8 @@ export default function Admin() {
           }
         } catch { /* ignore */ }
         setSettings(s);
+        // Re-show the saved key for the active provider so it doesn't look "lost" after refresh.
+        try { if (s.ai) setApiKeyInput(localStorage.getItem('ai_key_' + s.ai.provider) || ''); } catch { /* ignore */ }
       } catch { /* settings tab will show a loader */ }
     })();
   }, []);
@@ -515,7 +517,7 @@ export default function Admin() {
         // the dropdown back to the server's old provider.
         body: JSON.stringify({ ai: settings.ai, keys: { [settings.ai.provider]: apiKeyInput.trim() } }),
       });
-      if (r.ok) { setSettings(await r.json()); setApiKeyInput(''); toast.success('บันทึก API Key แล้ว'); }
+      if (r.ok) { setSettings(await r.json()); toast.success('บันทึก API Key แล้ว'); }   // keep the key shown
       else toast.error('บันทึก API Key ล้มเหลว');
     } finally {
       setSavingKey(false);
@@ -1092,7 +1094,7 @@ export default function Admin() {
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
                     <Label>ผู้ให้บริการ</Label>
-                    <Select value={settings.ai.provider} onValueChange={v => patch('ai', { provider: v, model: POPULAR_MODELS[v]?.[0] || '' })}>
+                    <Select value={settings.ai.provider} onValueChange={v => { patch('ai', { provider: v, model: POPULAR_MODELS[v]?.[0] || '' }); try { setApiKeyInput(localStorage.getItem('ai_key_' + v) || ''); } catch { /* ignore */ } }}>
                       <SelectTrigger className="bg-secondary/30 mt-1.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {PROVIDERS.map(p => (
