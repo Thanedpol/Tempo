@@ -17,9 +17,12 @@ const PROPS = [
   { icon: '🔔', en: 'On-sale alerts', th: 'เตือนรอบเปิดขาย ไม่พลาดตั๋ว' },
 ];
 
+// Default Google Form (public link). Override via env if you switch forms.
+const GOOGLE_FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSf_V-OBkTNDa2Um4jV45Iz7z7IbAGdU2XYd2iDub77BwLYo2w/viewform';
+
 export default function WaitlistPage() {
-  const formUrl = process.env.NEXT_PUBLIC_WAITLIST_URL || '';
-  const embedUrl = process.env.NEXT_PUBLIC_WAITLIST_EMBED_URL || '';
+  const formUrl = process.env.NEXT_PUBLIC_WAITLIST_URL || GOOGLE_FORM;
+  const embedUrl = process.env.NEXT_PUBLIC_WAITLIST_EMBED_URL || `${GOOGLE_FORM}?embedded=true`;
 
   return (
     <div className="min-h-screen bg-background text-foreground px-6 py-12">
@@ -69,7 +72,7 @@ export default function WaitlistPage() {
               title="Tempo waitlist form"
               loading="lazy"
               className="w-full rounded-xl border border-border/30 bg-white"
-              style={{ height: 520 }}
+              style={{ height: 680 }}
             />
           ) : formUrl ? (
             <a
