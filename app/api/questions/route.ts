@@ -17,18 +17,23 @@ export const dynamic = 'force-dynamic';
  * shows a clear "set the env var" hint (mirrors the /waitlist behaviour).
  */
 const Payload = z.object({
-  name: z.string().trim().min(1, 'กรุณากรอกชื่อ').max(120),
+  // name is OPTIONAL by design (avoid forcing PII — see /privacy).
+  name: z.string().trim().max(120).optional().default(''),
   email: z.string().trim().email('อีเมลไม่ถูกต้อง').max(200),
   contact: z.string().trim().max(120).optional().default(''),
-  segment: z.string().trim().max(80).optional().default(''),
+  segments: z.array(z.string().max(80)).max(10).optional().default([]),
   artists: z.string().trim().max(500).optional().default(''),
   genres: z.array(z.string().max(40)).max(30).optional().default([]),
   painPoints: z.array(z.string().max(120)).max(20).optional().default([]),
+  painOther: z.string().trim().max(500).optional().default(''),
+  frequency: z.string().trim().max(40).optional().default(''),
+  platforms: z.array(z.string().max(60)).max(20).optional().default([]),
   stayInterest: z.string().trim().max(40).optional().default(''),
   budget: z.string().trim().max(60).optional().default(''),
+  intent: z.string().trim().max(40).optional().default(''),
   city: z.string().trim().max(120).optional().default(''),
   comment: z.string().trim().max(2000).optional().default(''),
-  consent: z.literal(true, { errorMap: () => ({ message: 'กรุณายอมรับเพื่อให้เราติดต่อกลับ' }) }),
+  consent: z.literal(true, { errorMap: () => ({ message: 'กรุณายอมรับเพื่อให้เราติดต่อกลับและใช้ข้อมูลเพื่อพัฒนาผลิตภัณฑ์' }) }),
 });
 
 export async function POST(req: NextRequest) {
@@ -51,8 +56,10 @@ export async function POST(req: NextRequest) {
   const submittedAt = new Date().toISOString();
   const row = {
     ...parsed.data,
+    segments: parsed.data.segments.join(', '),
     genres: parsed.data.genres.join(', '),
     painPoints: parsed.data.painPoints.join(', '),
+    platforms: parsed.data.platforms.join(', '),
     submittedAt,
     source: 'questions-page',
   };

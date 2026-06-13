@@ -4,6 +4,9 @@
 // (same-origin), which forwards the row to a Google Apps Script → Google Sheet.
 // Uses controlled state + a small zod check on submit (matches the lightweight
 // form style elsewhere in the app rather than the full react-hook-form wrapper).
+//
+// PDPA: name is OPTIONAL (avoid forcing PII), consent covers research + contact
+// and links to /privacy, and a short privacy notice sits above the submit button.
 
 import { useState } from 'react';
 import { z } from 'zod';
@@ -34,6 +37,10 @@ const PAIN_POINTS = [
   'ส่งตั๋วช้า / ซัพพอร์ตแย่',
 ];
 
+const FREQUENCIES = ['ยังไม่เคย / ครั้งแรก', '1–2 ครั้ง/ปี', '3–5 ครั้ง/ปี', 'มากกว่า 5 ครั้ง/ปี'];
+
+const PLATFORMS = ['Thai Ticket Major', 'Ticketmelon', 'TheConcert', 'Eventpop', 'ตลาดรอง / ซื้อต่อจากคนอื่น', 'อื่นๆ'];
+
 const STAY_OPTIONS = [
   { value: 'high', label: 'สนใจมาก' },
   { value: 'maybe', label: 'เฉย ๆ' },
@@ -48,28 +55,41 @@ const BUDGETS = [
   'มากกว่า 20,000 บาท',
 ];
 
+const INTENTS = [
+  { value: 'yes', label: 'ลองแน่นอน' },
+  { value: 'probably', label: 'น่าจะลอง' },
+  { value: 'unsure', label: 'ไม่แน่ใจ' },
+  { value: 'no', label: 'คงไม่ลอง' },
+];
+
+// Only email + consent are required; name is intentionally optional (PDPA).
 const Schema = z.object({
-  name: z.string().trim().min(1, 'กรุณากรอกชื่อ'),
   email: z.string().trim().email('อีเมลไม่ถูกต้อง'),
-  consent: z.literal(true, { errorMap: () => ({ message: 'กรุณายอมรับเพื่อให้เราติดต่อกลับ' }) }),
+  consent: z.literal(true, { errorMap: () => ({ message: 'กรุณายอมรับเพื่อให้เราติดต่อกลับและใช้ข้อมูลเพื่อพัฒนาผลิตภัณฑ์' }) }),
 });
 
-type Errors = Partial<Record<'name' | 'email' | 'consent', string>>;
+type Errors = Partial<Record<'email' | 'consent', string>>;
 type Status = 'idle' | 'submitting' | 'success' | 'error' | 'not_configured';
 
 const labelCls = 'text-sm font-medium text-foreground';
 const inputCls = 'bg-background/60 border-border/40';
+const chipBase = 'text-sm rounded-full border px-3 py-1.5 transition-colors';
+const cardBtnBase = 'text-sm rounded-xl border px-3 py-2.5 text-left transition-colors';
 
 export default function QuestionsForm() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [contact, setContact] = useState('');
-  const [segment, setSegment] = useState('');
+  const [segments, setSegments] = useState<string[]>([]);
   const [artists, setArtists] = useState('');
   const [genres, setGenres] = useState<string[]>([]);
   const [painPoints, setPainPoints] = useState<string[]>([]);
+  const [painOther, setPainOther] = useState('');
+  const [frequency, setFrequency] = useState('');
+  const [platforms, setPlatforms] = useState<string[]>([]);
   const [stayInterest, setStayInterest] = useState('');
   const [budget, setBudget] = useState('');
+  const [intent, setIntent] = useState('');
   const [city, setCity] = useState('');
   const [comment, setComment] = useState('');
   const [consent, setConsent] = useState(false);
@@ -80,12 +100,20 @@ export default function QuestionsForm() {
   const toggle = (list: string[], set: (v: string[]) => void, value: string) =>
     set(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
 
+  // Full literal class strings per color — Tailwind can't compile `border-${color}`.
+  const chipCls = (on: boolean, color: 'primary' | 'accent') => {
+    if (color === 'primary') {
+      return `${chipBase} ${on ? 'border-primary bg-primary/15 text-foreground' : 'border-border/40 bg-background/40 text-muted-foreground hover:border-primary/40'}`;
+    }
+    return `${chipBase} ${on ? 'border-accent bg-accent/15 text-foreground' : 'border-border/40 bg-background/40 text-muted-foreground hover:border-accent/40'}`;
+  };
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const result = Schema.safeParse({ name, email, consent });
+    const result = Schema.safeParse({ email, consent });
     if (!result.success) {
       const f = result.error.flatten().fieldErrors;
-      setErrors({ name: f.name?.[0], email: f.email?.[0], consent: f.consent?.[0] });
+      setErrors({ email: f.email?.[0], consent: f.consent?.[0] });
       return;
     }
     setErrors({});
@@ -95,8 +123,9 @@ export default function QuestionsForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name, email, contact, segment, artists,
-          genres, painPoints, stayInterest, budget, city, comment, consent,
+          name, email, contact, segments, artists, genres,
+          painPoints, painOther, frequency, platforms,
+          stayInterest, budget, intent, city, comment, consent,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -135,9 +164,8 @@ export default function QuestionsForm() {
         <h2 className="font-syne font-bold text-lg">ข้อมูลติดต่อ</h2>
 
         <div className="space-y-1.5">
-          <Label htmlFor="name" className={labelCls}>ชื่อ / ชื่อเล่น <span className="text-destructive">*</span></Label>
+          <Label htmlFor="name" className={labelCls}>ชื่อเล่น <span className="text-muted-foreground font-normal">(ไม่บังคับ · ไม่ต้องใช้ชื่อจริง)</span></Label>
           <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder="เช่น มิว" />
-          {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
         </div>
 
         <div className="space-y-1.5">
@@ -157,50 +185,63 @@ export default function QuestionsForm() {
         <h2 className="font-syne font-bold text-lg">บอกเราเกี่ยวกับคุณ</h2>
 
         <div className="space-y-2">
-          <Label className={labelCls}>คุณคือใคร?</Label>
+          <Label className={labelCls}>คุณคือใคร? <span className="text-muted-foreground font-normal">(เลือกได้หลายอัน)</span></Label>
           <div className="grid grid-cols-2 gap-2">
-            {SEGMENTS.map((s) => (
-              <button
-                type="button"
-                key={s.value}
-                onClick={() => setSegment(segment === s.value ? '' : s.value)}
-                className={`text-sm rounded-xl border px-3 py-2.5 text-left transition-colors ${
-                  segment === s.value
-                    ? 'border-primary bg-primary/15 text-foreground'
-                    : 'border-border/40 bg-background/40 text-muted-foreground hover:border-primary/40'
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
+            {SEGMENTS.map((s) => {
+              const on = segments.includes(s.value);
+              return (
+                <button
+                  type="button"
+                  key={s.value}
+                  onClick={() => toggle(segments, setSegments, s.value)}
+                  className={`${cardBtnBase} ${
+                    on
+                      ? 'border-primary bg-primary/15 text-foreground'
+                      : 'border-border/40 bg-background/40 text-muted-foreground hover:border-primary/40'
+                  }`}
+                >
+                  {s.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="artists" className={labelCls}>ศิลปิน / คอนเสิร์ตที่อยากให้ Tempo ช่วยตามตั๋ว</Label>
-          <Input id="artists" value={artists} onChange={(e) => setArtists(e.target.value)} className={inputCls} placeholder="เช่น BLACKPINK, Bodyslam, Taylor Swift" />
+          <Input id="artists" value={artists} onChange={(e) => setArtists(e.target.value)} className={inputCls} placeholder="พิมพ์ชื่อศิลปินที่อยากให้เราตาม..." />
         </div>
 
         <div className="space-y-2">
           <Label className={labelCls}>แนวเพลงที่ชอบ <span className="text-muted-foreground font-normal">(เลือกได้หลายอัน)</span></Label>
           <div className="flex flex-wrap gap-2">
-            {GENRES.map((g) => {
-              const on = genres.includes(g);
-              return (
-                <button
-                  type="button"
-                  key={g}
-                  onClick={() => toggle(genres, setGenres, g)}
-                  className={`text-sm rounded-full border px-3 py-1.5 transition-colors ${
-                    on
-                      ? 'border-accent bg-accent/15 text-foreground'
-                      : 'border-border/40 bg-background/40 text-muted-foreground hover:border-accent/40'
-                  }`}
-                >
-                  {g}
-                </button>
-              );
-            })}
+            {GENRES.map((g) => (
+              <button type="button" key={g} onClick={() => toggle(genres, setGenres, g)} className={chipCls(genres.includes(g), 'accent')}>
+                {g}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label className={labelCls}>คุณไปคอนเสิร์ตบ่อยแค่ไหน?</Label>
+          <div className="flex flex-wrap gap-2">
+            {FREQUENCIES.map((f) => (
+              <button type="button" key={f} onClick={() => setFrequency(frequency === f ? '' : f)} className={chipCls(frequency === f, 'primary')}>
+                {f}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label className={labelCls}>ปกติซื้อตั๋วที่ไหน? <span className="text-muted-foreground font-normal">(เลือกได้หลายอัน)</span></Label>
+          <div className="flex flex-wrap gap-2">
+            {PLATFORMS.map((p) => (
+              <button type="button" key={p} onClick={() => toggle(platforms, setPlatforms, p)} className={chipCls(platforms.includes(p), 'accent')}>
+                {p}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -218,6 +259,12 @@ export default function QuestionsForm() {
               </label>
             ))}
           </div>
+          <Input
+            value={painOther}
+            onChange={(e) => setPainOther(e.target.value)}
+            className={`${inputCls} mt-1`}
+            placeholder="อื่นๆ (ระบุ)..."
+          />
         </div>
 
         <div className="space-y-2">
@@ -244,17 +291,28 @@ export default function QuestionsForm() {
           <Label className={labelCls}>งบต่อรอบ (รวมที่พักถ้ามี)</Label>
           <div className="flex flex-wrap gap-2">
             {BUDGETS.map((b) => (
+              <button type="button" key={b} onClick={() => setBudget(budget === b ? '' : b)} className={chipCls(budget === b, 'accent')}>
+                {b}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label className={labelCls}>ถ้า Tempo พร้อมใช้วันนี้ คุณจะลองใช้ไหม?</Label>
+          <div className="flex flex-wrap gap-2">
+            {INTENTS.map((o) => (
               <button
                 type="button"
-                key={b}
-                onClick={() => setBudget(budget === b ? '' : b)}
-                className={`text-sm rounded-full border px-3 py-1.5 transition-colors ${
-                  budget === b
-                    ? 'border-accent bg-accent/15 text-foreground'
-                    : 'border-border/40 bg-background/40 text-muted-foreground hover:border-accent/40'
+                key={o.value}
+                onClick={() => setIntent(intent === o.value ? '' : o.value)}
+                className={`text-sm rounded-xl border px-4 py-2 transition-colors ${
+                  intent === o.value
+                    ? 'border-primary bg-primary/15 text-foreground'
+                    : 'border-border/40 bg-background/40 text-muted-foreground hover:border-primary/40'
                 }`}
               >
-                {b}
+                {o.label}
               </button>
             ))}
           </div>
@@ -271,13 +329,32 @@ export default function QuestionsForm() {
         </div>
       </section>
 
-      {/* ---- consent + submit ---- */}
+      {/* ---- consent + privacy notice + submit ---- */}
       <section className="space-y-4">
         <label className="flex items-start gap-2.5 text-sm text-muted-foreground cursor-pointer">
           <Checkbox checked={consent} onCheckedChange={(v) => setConsent(v === true)} className="mt-0.5" />
-          <span>ยินดีให้ Tempo ติดต่อกลับเมื่อเปิดให้ใช้งาน (ไม่สแปม) <span className="text-destructive">*</span></span>
+          <span>
+            ยินดีให้ Tempo ใช้ข้อมูลเพื่อพัฒนาผลิตภัณฑ์และติดต่อกลับเมื่อเปิดให้ใช้งาน ตาม{' '}
+            <a
+              href="/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-primary hover:underline underline-offset-2"
+            >
+              นโยบายความเป็นส่วนตัว
+            </a>{' '}
+            <span className="text-destructive">*</span>
+          </span>
         </label>
         {errors.consent && <p className="text-xs text-destructive -mt-2">{errors.consent}</p>}
+
+        {/* Short PDPA notice */}
+        <p className="text-xs text-muted-foreground leading-relaxed bg-muted/20 border border-border/30 rounded-xl px-4 py-3">
+          🔒 เราเก็บเฉพาะข้อมูลที่คุณกรอก (เช่น ชื่อเล่น อีเมล ความสนใจ) เพื่อพัฒนาผลิตภัณฑ์และติดต่อกลับเรื่องการเปิดให้ใช้งานเท่านั้น
+          เก็บไว้ไม่เกิน 24 เดือนหรือจนกว่าคุณจะขอลบ และไม่ส่งต่อให้บุคคลภายนอกเพื่อการตลาด ·{' '}
+          <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">อ่านนโยบายความเป็นส่วนตัว</a>
+        </p>
 
         {status === 'error' && (
           <div className="text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded-xl px-4 py-3">
