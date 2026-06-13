@@ -1,7 +1,25 @@
 'use client';
 import { createContext, useContext, useEffect, useState } from 'react';
+import { Converter } from 'opencc-js';
 
 const I18nContext = createContext(null);
+
+/**
+ * Simplified → Traditional conversion for the `zh-Hant` language.
+ * All `zh` strings in the app are written in Simplified Chinese, so Traditional
+ * is generated on the fly (cached per string). The converter trie is built
+ * lazily on first use so non-Chinese sessions pay nothing.
+ */
+let _s2t = null;
+const _s2tCache = new Map();
+function toTraditional(s) {
+  if (!s) return s;
+  if (_s2tCache.has(s)) return _s2tCache.get(s);
+  if (!_s2t) _s2t = Converter({ from: 'cn', to: 'tw' });
+  const out = _s2t(s);
+  _s2tCache.set(s, out);
+  return out;
+}
 
 /** Translation dictionary. English is the source of truth; other langs fall back to it. */
 const dict = {
@@ -37,11 +55,12 @@ const dict = {
 };
 
 export const LANGUAGES = [
-  { code: 'en', name: 'English',  label: 'English'  },
-  { code: 'th', name: 'ไทย',      label: 'Thai'     },
-  { code: 'ja', name: '日本語',   label: 'Japanese' },
-  { code: 'zh', name: '中文',     label: 'Chinese'  },
-  { code: 'ko', name: '한국어',   label: 'Korean'   },
+  { code: 'en',      name: 'English',  label: 'English',               short: 'EN' },
+  { code: 'th',      name: 'ไทย',      label: 'Thai',                  short: 'TH' },
+  { code: 'ja',      name: '日本語',   label: 'Japanese',              short: 'JA' },
+  { code: 'zh-Hans', name: '简体中文', label: 'Chinese (Simplified)',  short: '简' },
+  { code: 'zh-Hant', name: '繁體中文', label: 'Chinese (Traditional)', short: '繁' },
+  { code: 'ko',      name: '한국어',   label: 'Korean',                short: 'KO' },
 ];
 
 export function I18nProvider({ children }) {
@@ -49,7 +68,12 @@ export function I18nProvider({ children }) {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    const saved = typeof window !== 'undefined' ? localStorage.getItem('language') : null;
+    let saved = typeof window !== 'undefined' ? localStorage.getItem('language') : null;
+    // Migrate the old single 'zh' code → Simplified.
+    if (saved === 'zh') {
+      saved = 'zh-Hans';
+      try { localStorage.setItem('language', saved); } catch {}
+    }
     if (saved && LANGUAGES.some(l => l.code === saved)) setLangState(saved);
     setHydrated(true);
   }, []);
@@ -64,6 +88,20 @@ export function I18nProvider({ children }) {
   };
 
   /**
+   * Resolve one translation entry for the active language.
+   * Both Chinese variants read the single `zh` field (Simplified source);
+   * `zh-Hant` is converted to Traditional on the fly.
+   */
+  const resolve = (e) => {
+    switch (lang) {
+      case 'en':      return e.en;
+      case 'zh-Hans': return e.zh ?? e.en;
+      case 'zh-Hant': return toTraditional(e.zh ?? e.en);
+      default:        return e[lang] ?? e.en;
+    }
+  };
+
+  /**
    * t(key, { en, th } | string) — returns the translated string.
    * - When called with just a key, looks it up in the dict.
    * - When called with inline pairs (e.g. `t('foo', { en: 'Foo', th: 'ฟู' })`) uses those directly.
@@ -72,19 +110,11 @@ export function I18nProvider({ children }) {
   const t = (key, inline) => {
     const entry = (typeof inline === 'object' && inline) || dict[key] || null;
     if (!entry) return key;
-    if (lang === 'en') return entry.en || key;
-    return entry[lang] || entry.en || key;
+    return resolve(entry) || entry.en || key;
   };
 
-  /** Pick a label from a bilingual pair. Used by Layout's nav items. */
-  const pick = ({ en, th, ja, zh, ko }) => {
-    if (lang === 'en') return en;
-    if (lang === 'th') return th || en;
-    if (lang === 'ja') return ja || en;
-    if (lang === 'zh') return zh || en;
-    if (lang === 'ko') return ko || en;
-    return en;
-  };
+  /** Pick a label from a multilingual pair. Used by Layout's nav items. */
+  const pick = ({ en, th, ja, zh, ko }) => resolve({ en, th, ja, zh, ko }) || en;
 
   return (
     <I18nContext.Provider value={{ lang, setLang, t, pick, LANGUAGES }}>

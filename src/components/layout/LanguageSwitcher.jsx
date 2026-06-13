@@ -31,7 +31,7 @@ export default function LanguageSwitcher() {
         aria-label="Change language"
       >
         <Globe className="w-4 h-4" />
-        <span className="font-medium">{current.code.toUpperCase()}</span>
+        <span className="font-medium">{current.short || current.code.toUpperCase()}</span>
         <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
