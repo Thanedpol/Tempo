@@ -17,13 +17,7 @@ const PROPS = [
   { icon: '🔔', en: 'On-sale alerts', th: 'เตือนรอบเปิดขาย ไม่พลาดตั๋ว' },
 ];
 
-// Default Google Form (public link). Override via env if you switch forms.
-const GOOGLE_FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSf_V-OBkTNDa2Um4jV45Iz7z7IbAGdU2XYd2iDub77BwLYo2w/viewform';
-
 export default function WaitlistPage() {
-  const formUrl = process.env.NEXT_PUBLIC_WAITLIST_URL || GOOGLE_FORM;
-  const embedUrl = process.env.NEXT_PUBLIC_WAITLIST_EMBED_URL || `${GOOGLE_FORM}?embedded=true`;
-
   return (
     <div className="min-h-screen bg-background text-foreground px-6 py-12">
       <div className="max-w-2xl mx-auto space-y-8">
@@ -61,35 +55,17 @@ export default function WaitlistPage() {
           ))}
         </div>
 
-        {/* Sign-up form */}
+        {/* Sign-up CTA → custom Tempo-themed /questions survey */}
         <div className="glass rounded-2xl p-5 border border-primary/20">
           <h2 className="font-syne font-bold text-lg mb-1">ลงชื่อรับสิทธิ์ · Join the waitlist</h2>
-          <p className="text-xs text-muted-foreground mb-4">ใช้เวลาไม่ถึง 30 วินาที · เราจะแจ้งเตือนทันทีที่เปิดให้ใช้งาน (ไม่สแปม)</p>
+          <p className="text-xs text-muted-foreground mb-4">ใช้เวลาไม่ถึง 1 นาที · ตอบไม่กี่ข้อเพื่อบอกความต้องการ แล้วเราจะแจ้งเตือนทันทีที่เปิดให้ใช้งาน (ไม่สแปม)</p>
 
-          {embedUrl ? (
-            <iframe
-              src={embedUrl}
-              title="Tempo waitlist form"
-              loading="lazy"
-              className="w-full rounded-xl border border-border/30 bg-white"
-              style={{ height: 680 }}
-            />
-          ) : formUrl ? (
-            <a
-              href={formUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block text-center w-full rounded-xl bg-gradient-to-r from-primary to-accent text-white font-semibold py-3 hover:opacity-90 transition-opacity"
-            >
-              ร่วม Waitlist เลย → / Join now
-            </a>
-          ) : (
-            <div className="text-sm text-amber-700 dark:text-amber-300 bg-amber-500/15 border border-amber-500/40 rounded-xl px-4 py-3">
-              ยังไม่ได้ตั้งค่าฟอร์ม — เพิ่ม <code className="font-mono">NEXT_PUBLIC_WAITLIST_URL</code> (และ/หรือ{' '}
-              <code className="font-mono">NEXT_PUBLIC_WAITLIST_EMBED_URL</code>) ใน Vercel env แล้ว redeploy<br />
-              <span className="text-xs opacity-80">สร้างฟอร์มฟรีที่ tally.so หรือ Google Forms — ฟิลด์: อีเมล · ชื่อ · ความสนใจ (ศิลปิน/แนวเพลง)</span>
-            </div>
-          )}
+          <a
+            href="/questions"
+            className="block text-center w-full rounded-xl bg-gradient-to-r from-primary to-accent text-white font-semibold py-3 hover:opacity-90 transition-opacity"
+          >
+            ร่วม Waitlist เลย → / Join now
+          </a>
         </div>
 
         <p className="text-center text-xs text-muted-foreground">
