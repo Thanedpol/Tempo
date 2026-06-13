@@ -25,6 +25,8 @@ export default function SiteFooter() {
           <Link to="/calendar"       className="hover:text-foreground transition-colors">{t('nav.calendar')}</Link>
           <Link to="/notifications"  className="hover:text-foreground transition-colors">{t('nav.notifications')}</Link>
           <Link to="/faqs"           className="hover:text-foreground transition-colors">{t('nav.faqs')}</Link>
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- /waitlist is a standalone public Next page outside the SPA router; needs a hard navigation */}
+          <a href="/waitlist" className="text-primary hover:text-primary/80 transition-colors font-medium">{t('nav.waitlist', { en: 'Join Waitlist', th: 'ร่วม Waitlist', ja: 'ウェイトリスト', zh: '加入候补', ko: '대기자 등록' })}</a>
         </nav>
 
         <div className="flex items-center gap-3 text-muted-foreground">
